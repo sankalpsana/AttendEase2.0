@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mark Attendance - Anurag University</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Custom CSS -->
+    <style>
+        body {
+            background: linear-gradient(135deg, #6a11cb, #2575fc);
+            font-family: Arial, sans-serif;
+            color: #333;
+            min-height: 100vh;
+        }
+
+        .dashboard-wrapper {
+            display: flex;
+            min-height: 100vh;
+            animation: fadeIn 1s ease-in-out;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 250px;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 1.5rem;
+            box-shadow: 4px 0 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .sidebar h3 {
+            color: #333;
+            font-weight: bold;
+            margin-bottom: 2rem;
+        }
+
+        .sidebar ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        .sidebar ul li {
+            margin-bottom: 1rem;
+        }
+
+        .sidebar ul li a {
+            text-decoration: none;
+            color: #333;
+            font-size: 1rem;
+            transition: color 0.3s ease;
+        }
+
+        .sidebar ul li a:hover {
+            color: #2575fc;
+        }
+
+        /* Main Content */
+        .main-content {
+            flex: 1;
+            padding: 2rem;
+            background: rgba(255, 255, 255, 0.9);
+            margin: 1rem;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+        }
+
+        .header h1 {
+            color: #333;
+            font-weight: bold;
+            font-size: 1.5rem; /* Smaller font size for mobile */
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+        }
+
+        .user-info img {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            margin-right: 0.5rem;
+        }
+
+        .user-info span {
+            color: #333;
+            font-weight: bold;
+            font-size: 0.9rem; /* Smaller font size for mobile */
+        }
+
+        /* Attendance Container */
+        .attendance-container {
+            display: flex;
+            flex-direction: column; /* Stack vertically on small screens */
+            gap: 2rem;
+        }
+
+        /* Webcam Container */
+        .webcam-container {
+            text-align: center;
+        }
+
+        .webcam-container video {
+            width: 100%;
+            max-width: 640px;
+            border-radius: 10px;
+        }
+
+        /* Attendance Boxes Container */
+        .attendance-boxes {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(60px, 1fr)); /* Responsive grid */
+            gap: 10px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .attendance-box {
+            padding: 10px;
+            text-align: center;
+            border-radius: 8px;
+            background-color: #dc3545; /* Red for absent */
+            color: white;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            font-size: 0.9rem; /* Smaller font size for mobile */
+        }
+
+        .attendance-box.present {
+            background-color: #28a745; /* Green for present */
+        }
+
+        /* Submit Button */
+        #stopButton {
+            width: 100%;
+            margin-top: 10px;
+        }
+
+        /* Responsive Adjustments */
+        @media (max-width: 768px) {
+            .dashboard-wrapper {
+                flex-direction: column; /* Stack sidebar and main content vertically */
+            }
+
+            .sidebar {
+                width: 100%; /* Full width on small screens */
+                padding: 1rem;
+            }
+
+            .main-content {
+                margin: 0.5rem;
+                padding: 1rem;
+            }
+
+            .header h1 {
+                font-size: 1.2rem; /* Smaller font size for mobile */
+            }
+
+            .attendance-box {
+                padding: 8px; /* Smaller padding for mobile */
+                font-size: 0.8rem; /* Smaller font size for mobile */
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="dashboard-wrapper">
+    <!-- Sidebar -->
+    <div class="sidebar">
+        <h3>Faculty Dashboard</h3>
+        <ul>
+            <li><a href="#"><i class="fas fa-home"></i> Home</a></li>
+            <li><a href="#"><i class="fas fa-calendar-alt"></i> Schedule</a></li>
+            <li><a href="#"><i class="fas fa-chart-line"></i> Attendance</a></li>
+            <li><a href="#"><i class="fas fa-cog"></i> Settings</a></li>
+            <li><a href="#"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
+        </ul>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        <!-- Header -->
+        <div class="header">
+            <h1>Take Attendance - Section {{ section_name }}</h1>
+            <div class="user-info">
+                <img src="https://via.placeholder.com/40" alt="User">
+                <span>Dr. John Doe</span>
+            </div>
+        </div>
+
+        <!-- Attendance Container -->
+        <div class="attendance-container">
+            <!-- Webcam Container -->
+            <div class="webcam-container">
+                <h5>Live Video Feed</h5>
+                <video id="video" width="640" height="480" autoplay></video>
+            </div>
+
+            <!-- Attendance Boxes -->
+            <div class="attendance-boxes" id="attendanceBoxes">
+                {% for student in students %}
+                    <div class="attendance-box" data-student-id="{{ student.roll_number }}">
+                        {{ student.roll_number }}
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Submit Button -->
+        <div class="text-center mt-4">
+            <button id="stopButton" class="btn btn-primary">Submit Attendance</button>
+        </div>
+    </div>
+</div>
+
+<!-- Bootstrap JS (Optional for animations) -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+<!-- Script to handle webcam and attendance boxes -->
+<script>
+    // Access the webcam
+    const video = document.getElementById('video');
+    let stream;
+    let detectedStudents = new Set();
+
+    navigator.mediaDevices.getUserMedia({video: true})
+        .then((streamObj) => {
+            stream = streamObj;
+            video.srcObject = stream;
+        })
+        .catch((err) => {
+            console.error("Error accessing webcam:", err);
+        });
+
+    // Function to mark a student as present
+    function markStudentPresent(studentId) {
+        const box = document.querySelector(`.attendance-box[data-student-id="${studentId}"]`);
+        if (box) {
+            box.classList.add('present');
+        }
+    }
+
+    // Toggle attendance status on box click
+    const attendanceBoxes = document.getElementById('attendanceBoxes');
+    attendanceBoxes.addEventListener('click', (event) => {
+        if (event.target.classList.contains('attendance-box')) {
+            event.target.classList.toggle('present');
+        }
+    });
+
+    // Submit attendance
+const stopButton = document.getElementById('stopButton');
+stopButton.addEventListener('click', () => {
+    const presentStudents = [];
+    const allStudents = [];
+
+    // Get all student IDs from the attendance boxes
+    document.querySelectorAll('.attendance-box').forEach(box => {
+        allStudents.push(box.getAttribute('data-student-id'));
+    });
+
+    // Get present student IDs
+    document.querySelectorAll('.attendance-box.present').forEach(box => {
+        presentStudents.push(box.getAttribute('data-student-id'));
+    });
+
+    // Calculate absent students
+    const absentStudents = allStudents.filter(studentId => !presentStudents.includes(studentId));
+
+    // Send attendance data to the backend
+    fetch('/submit-attendance', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            faculty_id: '{{ faculty_id }}',
+            subject_id: '{{ subject_id }}',
+            section_name: '{{ section_name }}',
+            present_students: presentStudents,
+            absent_students: absentStudents, // Include absent students
+        }),
+    })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert("Attendance submitted successfully!");
+            } else {
+                alert("Error submitting attendance: " + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+        });
+});
+
+    // Send video frames to the backend for facial recognition
+    function sendFrame() {
+        const frameCanvas = document.createElement('canvas');
+        frameCanvas.width = video.videoWidth;
+        frameCanvas.height = video.videoHeight;
+        const frameContext = frameCanvas.getContext('2d');
+        frameContext.drawImage(video, 0, 0, frameCanvas.width, frameCanvas.height);
+
+        // Encode the image in base64
+        const imageData = frameCanvas.toDataURL('image/jpeg');
+
+        fetch('/process_video', {
+            method: 'POST',
+            body: JSON.stringify({
+                image: imageData,
+                section_name: '{{ section_name }}',  // Pass section_name
+            }),
+            headers: {'Content-Type': 'application/json'}
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Clear previously detected students
+                    detectedStudents.clear();
+
+                    // Mark detected students as present
+                    data.faces.forEach(face => {
+                        const studentId = face.student_id;
+                        detectedStudents.add(studentId);
+
+                        // Find the corresponding attendance box and mark it as present
+                        const box = document.querySelector(`.attendance-box[data-student-id="${studentId}"]`);
+                        if (box) {
+                            box.classList.add('present');
+                        }
+                    });
+
+                    // Optional: Log detected students for debugging
+                    console.log("Detected Students:", Array.from(detectedStudents));
+                } else {
+                    console.error("Error processing video:", data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+            });
+    }
+
+    // Send frames every second
+    setInterval(sendFrame, 1000);
+</script>
+</body>
+</html>

@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analytics Dashboard - Anurag University</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Chart.js for Graphs -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Font Awesome for Icons -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
+    <!-- Custom CSS -->
+    <style>
+        body {
+            background: linear-gradient(135deg, #6a11cb, #2575fc);
+            font-family: Arial, sans-serif;
+            color: #333;
+            min-height: 100vh;
+        }
+        .dashboard-wrapper {
+            display: flex;
+            min-height: 100vh;
+            animation: fadeIn 1s ease-in-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        /* Sidebar */
+        .sidebar {
+            width: 250px;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 1.5rem;
+            box-shadow: 4px 0 15px rgba(0, 0, 0, 0.1);
+        }
+        .sidebar h3 {
+            color: #333;
+            font-weight: bold;
+            margin-bottom: 2rem;
+        }
+        .sidebar ul {
+            list-style: none;
+            padding: 0;
+        }
+        .sidebar ul li {
+            margin-bottom: 1rem;
+        }
+        .sidebar ul li a {
+            text-decoration: none;
+            color: #333;
+            font-size: 1rem;
+            transition: color 0.3s ease;
+        }
+        .sidebar ul li a:hover {
+            color: #2575fc;
+        }
+        /* Main Content */
+        .main-content {
+            flex: 1;
+            padding: 2rem;
+            background: rgba(255, 255, 255, 0.9);
+            margin: 1rem;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+        }
+        .header h1 {
+            color: #333;
+            font-weight: bold;
+        }
+        .user-info {
+            display: flex;
+            align-items: center;
+        }
+        .user-info img {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            margin-right: 0.5rem;
+        }
+        .user-info span {
+            color: #333;
+            font-weight: bold;
+        }
+        /* Cards */
+        .card {
+            background: #fff;
+            border: none;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            transition: transform 0.3s ease;
+        }
+        .card:hover {
+            transform: translateY(-5px);
+        }
+        .card h5 {
+            color: #333;
+            font-weight: bold;
+            margin-bottom: 1rem;
+        }
+        .card p {
+            color: #666;
+        }
+        .card .btn {
+            margin-right: 0.5rem;
+        }
+        /* Chart Containers */
+        .chart-container {
+            width: 400px; /* Smaller chart size */
+            height: 300px;
+            margin: 0 auto; /* Center the chart */
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard-wrapper">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <h3>Admin Dashboard</h3>
+            <ul>
+                <li><a href="#"><i class="fas fa-home"></i> Home</a></li>
+                <li><a href="#"><i class="fas fa-users"></i> Manage Users</a></li>
+                <li><a href="#"><i class="fas fa-layer-group"></i> Manage Sections</a></li>
+                <li><a href="#"><i class="fas fa-chart-line"></i> Analytics</a></li>
+                <li><a href="#"><i class="fas fa-cog"></i> Settings</a></li>
+                <li><a href="#"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
+            </ul>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Header -->
+            <div class="header">
+                <h1>Analytics Dashboard</h1>
+                <div class="user-info">
+                    <img src="https://via.placeholder.com/40" alt="User">
+                    <span>Admin</span>
+                </div>
+            </div>
+
+            <!-- Attendance Overview -->
+            <div class="card">
+                <h5>Attendance Overview</h5>
+                <div class="chart-container">
+                    <canvas id="attendanceChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Section-wise Attendance -->
+            <div class="card">
+                <h5>Section-wise Attendance</h5>
+                <div class="chart-container">
+                    <canvas id="sectionAttendanceChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS (Optional for animations) -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Chart.js Scripts -->
+    <script>
+        // Fetch data from the backend
+        async function fetchData() {
+            const response = await fetch('/api/analytics');
+            const data = await response.json();
+            return data;
+        }
+
+        // Render Charts
+        async function renderCharts() {
+            const data = await fetchData();
+
+            // Attendance Overview Chart
+            const attendanceCtx = document.getElementById('attendanceChart').getContext('2d');
+            new Chart(attendanceCtx, {
+                type: 'line',
+                data: {
+                    labels: data.attendance_overview.labels,
+                    datasets: [{
+                        label: 'Attendance Percentage',
+                        data: data.attendance_overview.data,
+                        borderColor: '#2575fc',
+                        fill: false,
+                    }]
+                },
+                options: {
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 100,
+                        }
+                    }
+                }
+            });
+
+            // Section-wise Attendance Chart
+            const sectionCtx = document.getElementById('sectionAttendanceChart').getContext('2d');
+            new Chart(sectionCtx, {
+                type: 'bar',
+                data: {
+                    labels: data.section_attendance.labels,
+                    datasets: [{
+                        label: 'Attendance Percentage',
+                        data: data.section_attendance.data,
+                        backgroundColor: '#2575fc',
+                    }]
+                },
+                options: {
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 100,
+                        }
+                    }
+                }
+            });
+        }
+
+        // Initialize the page
+        renderCharts();
+    </script>
+</body>
+</html>
