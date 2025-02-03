@@ -18,15 +18,24 @@
             color: #333;
             min-height: 100vh;
         }
+
         .dashboard-wrapper {
             display: flex;
             min-height: 100vh;
             animation: fadeIn 1s ease-in-out;
         }
+
         @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(-20px); }
-            to { opacity: 1; transform: translateY(0); }
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
+
         /* Sidebar */
         .sidebar {
             width: 250px;
@@ -34,27 +43,33 @@
             padding: 1.5rem;
             box-shadow: 4px 0 15px rgba(0, 0, 0, 0.1);
         }
+
         .sidebar h3 {
             color: #333;
             font-weight: bold;
             margin-bottom: 2rem;
         }
+
         .sidebar ul {
             list-style: none;
             padding: 0;
         }
+
         .sidebar ul li {
             margin-bottom: 1rem;
         }
+
         .sidebar ul li a {
             text-decoration: none;
             color: #333;
             font-size: 1rem;
             transition: color 0.3s ease;
         }
+
         .sidebar ul li a:hover {
             color: #2575fc;
         }
+
         /* Main Content */
         .main-content {
             flex: 1;
@@ -64,30 +79,36 @@
             border-radius: 10px;
             box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
         }
+
         .header {
             display: flex;
             justify-content: space-between;
             align-items: center;
             margin-bottom: 2rem;
         }
+
         .header h1 {
             color: #333;
             font-weight: bold;
         }
+
         .user-info {
             display: flex;
             align-items: center;
         }
+
         .user-info img {
             width: 40px;
             height: 40px;
             border-radius: 50%;
             margin-right: 0.5rem;
         }
+
         .user-info span {
             color: #333;
             font-weight: bold;
         }
+
         /* Cards */
         .card {
             background: #fff;
@@ -98,35 +119,43 @@
             margin-bottom: 1.5rem;
             transition: transform 0.3s ease;
         }
+
         .card:hover {
             transform: translateY(-5px);
         }
+
         .card h5 {
             color: #333;
             font-weight: bold;
             margin-bottom: 1rem;
         }
+
         .card p {
             color: #666;
         }
+
         .card .btn {
             margin-right: 0.5rem;
         }
+
         /* Table */
         .table {
             width: 100%;
             border-collapse: collapse;
             margin-top: 1rem;
         }
+
         .table th, .table td {
             padding: 0.75rem;
             border-bottom: 1px solid #ddd;
             text-align: left;
         }
+
         .table th {
             background-color: #f8f9fa;
             font-weight: bold;
         }
+
         .table tr:hover {
             background-color: #f1f1f1;
         }
@@ -138,10 +167,12 @@
     <div class="sidebar">
         <h3>Admin Dashboard</h3>
         <ul>
-            <li><a href="#"><i class="fas fa-home"></i> Home</a></li>
-            <li><a href="#"><i class="fas fa-users"></i> Manage Students</a></li>
-            <li><a href="#"><i class="fas fa-chalkboard-teacher"></i> Manage Faculty</a></li>
-            <li><a href="#"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
+            <li><a href="/dashboard"><i class="fas fa-dashboard"></i> Dashboard</a></li>
+            <li><a href="/manage-students"><i class="fas fa-graduation-cap "></i> Manage Students</a></li>
+            <li><a href="/manage-faculty"><i class="fas fa-user"></i> Manage Faculty</a></li>
+            <li><a href="/manage-sections"><i class="fas fa-layer-group"></i> Manage Sections</a></li>
+            <li><a href="/admin-analytics"><i class="fas fa-bar-chart "></i> Analytics</a></li>
+            <li><a href="/logout"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
         </ul>
     </div>
 

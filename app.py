@@ -979,7 +979,10 @@ def faculty_attendance():
                           absent_percentage=100 - overall_attendance_percentage)
 @app.route('/admin-analytics')
 def analytics_page():
-    return render_template('admin_analytics.html')
+    username = session.get('name')
+    user_role = session.get('role')
+    user_id = session.get('id')
+    return render_template('admin_analytics.html', username=username, user_role=user_role, user_id=user_id)
 
 @app.route('/api/analytics')
 def analytics():
