@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register Facial Data - Anurag University</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome for Icons -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
+    <!-- Custom CSS -->
+    <style>
+        body {
+            background: linear-gradient(135deg, #6a11cb, #2575fc);
+            font-family: Arial, sans-serif;
+            color: #333;
+            min-height: 100vh;
+        }
+
+        .register-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .register-box {
+            background: rgba(255, 255, 255, 0.9);
+            padding: 2rem;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 400px;
+        }
+
+        .register-box h1 {
+            color: #333;
+            font-weight: bold;
+            margin-bottom: 1.5rem;
+        }
+
+        .register-box p {
+            color: #666;
+            margin-bottom: 1.5rem;
+        }
+
+        .register-box video {
+            width: 100%;
+            border-radius: 5px;
+        }
+
+        .register-box button {
+            margin-top: 1rem;
+            width: 100%;
+            padding: 0.5rem;
+            background-color: #2575fc;
+            border: none;
+            border-radius: 5px;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .register-box button:hover {
+            background-color: #1a5bbf;
+        }
+    </style>
+</head>
+<body>
+<div class="register-container">
+    <div class="register-box">
+        <h1>Register Facial Data</h1>
+        <p>Please look into the camera to register your facial data.</p>
+        <video id="video" width="100%" autoplay></video>
+        <canvas id="canvas" style="display:none;"></canvas>
+        <button type="button" id="registerFaceButton">Register</button>
+    </div>
+</div>
+
+<!-- Bootstrap JS -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+<!-- JavaScript for Facial Data Registration -->
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const registerFaceButton = document.getElementById('registerFaceButton');
+
+        // Start webcam
+        navigator.mediaDevices.getUserMedia({ video: true })
+            .then((stream) => {
+                video.srcObject = stream;
+            })
+            .catch((err) => {
+                console.error("Error accessing webcam:", err);
+            });
+
+        // Handle facial data registration
+        registerFaceButton.addEventListener('click', () => {
+            const context = canvas.getContext('2d');
+            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+            const imageData = canvas.toDataURL('image/jpeg');
+
+            fetch('/register-facial-data', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    image: imageData,
+                }),
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        alert('Facial data registered successfully!');
+                        window.location.href = '/dashboard'; // Redirect to dashboard after registration
+                    } else {
+                        alert('Error registering facial data. Please try again.');
+                    }
+                });
+        });
+    });
+</script>
+</body>
+</html>

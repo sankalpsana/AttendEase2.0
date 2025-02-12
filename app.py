@@ -14,6 +14,9 @@ import numpy as np
 import os
 import cv2
 from pyngrok import ngrok
+import pyqrcode
+import png
+from pyqrcode import QRCode
 
 face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
 
@@ -417,6 +420,163 @@ def add_student():
         return jsonify({"success": False, "message": "Failed to add student!"}), 500
 
 
+@app.route('/register-facial-data', methods=['GET', 'POST'])
+@login_required
+def register_facial_data():
+    if request.method == 'GET':
+        return render_template('register_facial_data.html')
+
+    # Handle facial data registration
+    data = request.get_json()
+    image_data = data.get('image')  # Base64-encoded image
+
+    # Decode the image and extract facial encoding
+    try:
+        image_data = image_data.split(",")[1]
+        image = base64.b64decode(image_data)
+        np_image = np.frombuffer(image, dtype=np.uint8)
+        img = cv2.imdecode(np_image, cv2.IMREAD_COLOR)
+
+        # Extract facial encoding
+        face_encodings = face_recognition.face_encodings(img)
+        if not face_encodings:
+            return jsonify({'success': False, 'message': 'No face detected in the image.'}), 400
+
+        facial_encoding = face_encodings[0].tolist()
+        encoding_str = ",".join(map(str, facial_encoding))
+
+        # Update the user's facial encoding in the database
+        user_id = session.get('id')
+        user_role = session.get('role')
+
+        conn = db_pool.get_connection()
+        cursor = conn.cursor()
+
+        if user_role == 'student':
+            cursor.execute("UPDATE students SET facial_embedding = %s WHERE roll_number = %s", (encoding_str, user_id))
+        elif user_role == 'faculty':
+            cursor.execute("UPDATE faculty SET facial_embedding = %s WHERE faculty_id = %s", (encoding_str, user_id))
+
+        conn.commit()
+        cursor.close()
+        conn.close()
+
+        return jsonify({'success': True, 'message': 'Facial data registered successfully!'})
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'Error processing facial data: {e}'}), 500
+
+'''@app.route('/login', methods=['GET', 'POST'])
+def login():
+    form = LoginForm()
+    if form.validate_on_submit():
+        username = form.username.data
+        password = form.password.data
+        role = form.role.data
+
+        conn = db_pool.get_connection()
+        cursor = conn.cursor(dictionary=True)
+        user = None
+
+        # Check if user is a student
+        if role == 'student':
+            cursor.execute("SELECT roll_number, name, password_hash, facial_embedding FROM students WHERE roll_number = %s", (username,))
+            student = cursor.fetchone()
+            if student and student['password_hash'] == password:  # Compare plain-text passwords
+                user = User(student['roll_number'], 'student', student['name'])
+                session['facial_embedding'] = student['facial_embedding']
+
+        # Check if user is faculty
+        elif role == 'faculty':
+            cursor.execute("SELECT faculty_id, name, password_hash, facial_embedding FROM faculty WHERE faculty_id = %s", (username,))
+            faculty = cursor.fetchone()
+            if faculty and faculty['password_hash'] == password:  # Compare plain-text passwords
+                user = User(faculty['faculty_id'], 'faculty', faculty['name'])
+                session['facial_embedding'] = faculty['facial_embedding']
+
+        # Check if user is admin
+        elif role == 'admin':
+            cursor.execute("SELECT admin_id, username, password_hash FROM admin WHERE admin_id = %s", (username,))
+            admin = cursor.fetchone()
+            if admin and admin['password_hash'] == password:  # Compare plain-text passwords
+                user = User(admin['admin_id'], 'admin', admin['username'])
+
+        cursor.close()
+        conn.close()
+
+        if user:
+            # If user is admin, skip facial verification
+            if user.role == 'admin':
+                login_user(user)
+                session['id'] = user.id
+                session['role'] = user.role
+                session['name'] = user.name
+                return redirect(url_for('dashboard'))
+
+            # For non-admin users, check if facial data is registered
+            if not session.get('facial_embedding'):
+                # Redirect to facial data registration page
+                login_user(user)
+                session['id'] = user.id
+                session['role'] = user.role
+                session['name'] = user.name
+                return redirect(url_for('register_facial_data'))
+
+            # If facial data is registered, proceed to facial verification
+            return render_template('facial_verification.html', username=username, role=role)
+        else:
+            flash('Invalid username, password, or role!', 'danger')
+
+    return render_template('login.html', form=form)'''
+
+'''@app.route('/verify-facial-data', methods=['POST'])
+def verify_facial_data():
+    data = request.get_json()
+    image_data = data.get('image')  # Base64-encoded image
+    username = data.get('username')
+    role = data.get('role')
+
+    # Fetch the stored facial encoding for the user
+    conn = db_pool.get_connection()
+    cursor = conn.cursor(dictionary=True)
+
+    if role == 'student':
+        cursor.execute("SELECT facial_embedding FROM students WHERE roll_number = %s", (username,))
+    elif role == 'faculty':
+        cursor.execute("SELECT facial_embedding FROM faculty WHERE faculty_id = %s", (username,))
+
+    user = cursor.fetchone()
+    cursor.close()
+    conn.close()
+
+    if not user or not user['facial_embedding']:
+        return jsonify({'success': False, 'message': 'Facial data not found for the user.'}), 404
+
+    stored_encoding = [float(x) for x in user['facial_embedding'].split(',')]
+
+    # Decode the image and extract facial encoding
+    try:
+        image_data = image_data.split(",")[1]
+        image = base64.b64decode(image_data)
+        np_image = np.frombuffer(image, dtype=np.uint8)
+        img = cv2.imdecode(np_image, cv2.IMREAD_COLOR)
+
+        # Extract facial encoding from the uploaded image
+        face_encodings = face_recognition.face_encodings(img)
+        if not face_encodings:
+            return jsonify({'success': False, 'message': 'No face detected in the image.'}), 400
+
+        uploaded_encoding = face_encodings[0]
+
+        # Compare the uploaded encoding with the stored encoding
+        match = face_recognition.compare_faces([stored_encoding], uploaded_encoding)
+        if match[0]:
+            return jsonify({'success': True, 'message': 'Facial verification successful!'})
+        else:
+            return jsonify({'success': False, 'message': 'Facial verification failed.'}), 401
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'Error processing facial data: {e}'}), 500
+'''
+
 @app.route('/fetch-sections', methods=['GET'])
 @login_required
 def fetch_sections():
@@ -815,11 +975,11 @@ def mark_attendance():
     cursor.close()
     conn.close()
 
-    return render_template('mark_attendance.html', students=students, faculty_id=faculty_id, subject_id=subject_id,
+    return render_template('mark_attendance.html', username=session.get('name'), students=students, faculty_id=faculty_id, subject_id=subject_id,
                            section_name=section_name)
 
 
-@app.route('/submit-attendance', methods=['POST'])
+'''@app.route('/submit-attendance', methods=['POST'])
 def submit_attendance():
     data = request.get_json()
     faculty_id = data.get('faculty_id')
@@ -845,6 +1005,45 @@ def submit_attendance():
                                INSERT INTO attendance (roll_number, subject_id, date, status, faculty_id)
                                VALUES (%s, %s, CURDATE(), 'Absent', %s)
                                """, (student_id, subject_id, faculty_id))
+
+        conn.commit()
+        return jsonify({'success': True})
+    except mysql.connector.Error as err:
+        return jsonify({'success': False, 'message': str(err)})
+    finally:
+        cursor.close()
+        conn.close()'''
+@app.route('/submit-attendance', methods=['POST'])
+def submit_attendance():
+    data = request.get_json()
+    faculty_id = data.get('faculty_id')
+    subject_id = data.get('subject_id')
+    section_name = data.get('section_name')
+    present_students = data.get('present_students')
+    absent_students = data.get('absent_students')
+
+    conn = db_pool.get_connection()
+    cursor = conn.cursor()
+
+    try:
+        # Insert attendance records into the database
+        for student_id in present_students:
+            cursor.execute("""
+                INSERT INTO attendance (roll_number, subject_id, date, status, faculty_id)
+                VALUES (%s, %s, CURDATE(), 'Present', %s)
+            """, (student_id, subject_id, faculty_id))
+
+        for student_id in absent_students:
+            cursor.execute("""
+                INSERT INTO attendance (roll_number, subject_id, date, status, faculty_id)
+                VALUES (%s, %s, CURDATE(), 'Absent', %s)
+            """, (student_id, subject_id, faculty_id))
+
+        # Remove the substitute assignment after attendance is marked
+        cursor.execute("""
+            DELETE FROM substitute_assignments
+            WHERE substitute_faculty_id = %s AND subject_id = %s AND section_name = %s
+        """, (faculty_id, subject_id, section_name))
 
         conn.commit()
         return jsonify({'success': True})
@@ -984,6 +1183,37 @@ def analytics_page():
     user_id = session.get('id')
     return render_template('admin_analytics.html', username=username, user_role=user_role, user_id=user_id)
 
+@app.route('/api/subject-attendance', methods=['GET'])
+def get_subject_attendance():
+    section_name = request.args.get('section')
+
+    conn = db_pool.get_connection()
+    cursor = conn.cursor(dictionary=True)
+
+    try:
+        # Fetch subject-wise average attendance for the given section
+        cursor.execute("""
+            SELECT s.subject_name, AVG(CASE WHEN a.status = 'Present' THEN 100 ELSE 0 END) AS attendance_percentage
+            FROM attendance a
+            JOIN subjects s ON a.subject_id = s.subject_id
+            JOIN students st ON a.roll_number = st.roll_number
+            WHERE st.section_name = %s
+            GROUP BY s.subject_name
+        """, (section_name,))
+        subject_attendance = cursor.fetchall()
+
+        # Prepare data for the chart
+        return jsonify(subject_attendance)
+    except mysql.connector.Error as err:
+        return jsonify({
+            'success': False,
+            'message': f'Database error: {err}'
+        })
+    finally:
+        cursor.close()
+        conn.close()
+
+
 @app.route('/api/analytics')
 def analytics():
     conn = db_pool.get_connection()
@@ -1024,6 +1254,127 @@ def analytics():
 
     return jsonify(data)
 
+@app.route('/assign-substitute', methods=['POST'])
+@login_required
+def assign_substitute():
+    if session.get('role') != 'faculty':
+        return jsonify({'success': False, 'message': 'Unauthorized access!'}), 403
+
+    data = request.get_json()
+    substitute_faculty_id = data.get('substitute_faculty_id')
+    subject_id = data.get('subject_id')
+    section_name = data.get('section_name')
+    date = data.get('date')  # Date for which the substitute is assigned
+
+    original_faculty_id = session.get('id')  # Logged-in faculty is the original faculty
+
+    conn = db_pool.get_connection()
+    cursor = conn.cursor()
+
+    try:
+        # Insert the substitute assignment into the database
+        cursor.execute("""
+            INSERT INTO substitute_assignments (original_faculty_id, substitute_faculty_id, subject_id, section_name, date)
+            VALUES (%s, %s, %s, %s, %s)
+        """, (original_faculty_id, substitute_faculty_id, subject_id, section_name, date))
+        conn.commit()
+
+        return jsonify({'success': True, 'message': 'Substitute assigned successfully!'})
+    except mysql.connector.Error as err:
+        return jsonify({'success': False, 'message': f'Database error: {err}'}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
+@app.route('/fetch-substitute-classes', methods=['GET'])
+@login_required
+def fetch_substitute_classes():
+    if session.get('role') != 'faculty':
+        return jsonify({'success': False, 'message': 'Unauthorized access!'}), 403
+
+    substitute_faculty_id = session.get('id')  # Logged-in faculty is the substitute
+
+    conn = db_pool.get_connection()
+    cursor = conn.cursor(dictionary=True)
+
+    try:
+        # Fetch substitute assignments for the logged-in faculty
+        cursor.execute("""
+            SELECT sa.id, sa.subject_id, sa.section_name, sa.date, s.subject_name, f.name AS original_faculty_name
+            FROM substitute_assignments sa
+            JOIN subjects s ON sa.subject_id = s.subject_id
+            JOIN faculty f ON sa.original_faculty_id = f.faculty_id
+            WHERE sa.substitute_faculty_id = %s
+        """, (substitute_faculty_id,))
+        substitute_classes = cursor.fetchall()
+
+        return jsonify({'success': True, 'substitute_classes': substitute_classes})
+    except mysql.connector.Error as err:
+        return jsonify({'success': False, 'message': f'Database error: {err}'}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
+@app.route('/fetch-substitute-assignments', methods=['GET'])
+@login_required
+def fetch_substitute_assignments():
+    if session.get('role') != 'faculty':
+        return jsonify({'success': False, 'message': 'Unauthorized access!'}), 403
+
+    original_faculty_id = session.get('id')  # Logged-in faculty is the original faculty
+
+    conn = db_pool.get_connection()
+    cursor = conn.cursor(dictionary=True)
+
+    try:
+        # Fetch substitute assignments for the logged-in faculty
+        cursor.execute("""
+            SELECT sa.id, sa.subject_id, sa.section_name, sa.date, s.subject_name, f.name AS substitute_faculty_name
+            FROM substitute_assignments sa
+            JOIN subjects s ON sa.subject_id = s.subject_id
+            JOIN faculty f ON sa.substitute_faculty_id = f.faculty_id
+            WHERE sa.original_faculty_id = %s
+        """, (original_faculty_id,))
+        substitute_assignments = cursor.fetchall()
+
+        return jsonify({'success': True, 'substitute_assignments': substitute_assignments})
+    except mysql.connector.Error as err:
+        return jsonify({'success': False, 'message': f'Database error: {err}'}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
+@app.route('/fetch-substitute-classes-for-substitute', methods=['GET'])
+@login_required
+def fetch_substitute_classes_for_substitute():
+    if session.get('role') != 'faculty':
+        return jsonify({'success': False, 'message': 'Unauthorized access!'}), 403
+
+    substitute_faculty_id = session.get('id')  # Logged-in faculty is the substitute
+
+    conn = db_pool.get_connection()
+    cursor = conn.cursor(dictionary=True)
+
+    try:
+        # Fetch substitute assignments for the logged-in substitute faculty
+        cursor.execute("""
+            SELECT sa.id, sa.subject_id, sa.section_name, sa.date, s.subject_name, f.name AS original_faculty_name
+            FROM substitute_assignments sa
+            JOIN subjects s ON sa.subject_id = s.subject_id
+            JOIN faculty f ON sa.original_faculty_id = f.faculty_id
+            WHERE sa.substitute_faculty_id = %s
+        """, (substitute_faculty_id,))
+        substitute_classes = cursor.fetchall()
+
+        return jsonify({'success': True, 'substitute_classes': substitute_classes})
+    except mysql.connector.Error as err:
+        return jsonify({'success': False, 'message': f'Database error: {err}'}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
+
+
 @app.route('/logout')
 @login_required
 def logout():
@@ -1032,6 +1383,12 @@ def logout():
     return redirect(url_for('login'))
 
 public_url = ngrok.connect(addr=5000, proto='http').public_url
+
+url = pyqrcode.create(public_url)
+qr_filename = "myqr.png"
+url.png(qr_filename, scale=6)
+img = Image.open(qr_filename)
+img.show()
 print(" * ngrok URL: " + public_url + " *")
 
 if __name__ == '__main__':

@@ -172,7 +172,8 @@
             <li><a href="/dashboard"><i class="fas fa-dashboard"></i> Dashboard</a></li>
             <li><a href="/manage-students"><i class="fas fa-graduation-cap "></i> Manage Students</a></li>
             <li><a href="/manage-faculty"><i class="fas fa-user"></i> Manage Faculty</a></li>
-            <li><a href="/manage-sections"><i class="fas fa-layer-group"></i> Manage Sections</a></li>
+            <li><a href="/manage-subjects"><i class="fas fa-book"></i> Manage Courses</a></li>
+            <li><a href="/manage-sections"><i class="fas fa-chalkboard"></i> Manage Sections</a></li>
             <li><a href="/admin-analytics"><i class="fas fa-bar-chart "></i> Analytics</a></li>
             <li><a href="/logout"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
         </ul>
@@ -184,7 +185,7 @@
         <div class="header">
             <h1>Welcome, Admin!</h1>
             <div class="user-info">
-                <img src="https://via.placeholder.com/40" alt="User">
+                <img src="profile_user.svg" alt="User">
                 <span>{{ user_name }}</span>
             </div>
         </div>
@@ -204,7 +205,7 @@
                 </div>
             </div>
             <div class="col-md-4">
-                <a href="/manage-sections">
+                <a href="/manage-subjects" style="text-decoration: none">
                     <div class="card">
                         <div class="icon"><i class="fas fa-book"></i></div>
                         <h5>Courses</h5>
@@ -213,7 +214,16 @@
                 </a>
             </div>
             <div class="col-md-4">
-                <a href="/admin-analytics">
+                <a href="/manage-sections" style="text-decoration: none">
+                    <div class="card">
+                        <div class="icon"><i class="fas fa-chalkboard"></i></div>
+                        <h5>Sections</h5>
+                        <p>View and manage all Classes.</p>
+                    </div>
+                </a>
+            </div>
+            <div class="col-md-4">
+                <a href="/admin-analytics" style="text-decoration: none">
                     <div class="card">
                         <div class="icon"><i class="fas fa-chart-line"></i></div>
                         <h5>Analytics</h5>

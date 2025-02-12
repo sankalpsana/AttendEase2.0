@@ -135,6 +135,17 @@
         .card .btn {
             margin-right: 0.5rem;
         }
+            .no-data {
+        width: 100%;
+        text-align: center;
+        color: #666;
+        font-style: italic;
+        padding: 1rem;
+        background: rgba(255, 255, 255, 0.8);
+        border-radius: 10px;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        margin: 1rem 0;
+    }
     </style>
 </head>
 <body>
@@ -155,7 +166,7 @@
         <div class="header">
             <h1>My Classes</h1>
             <div class="user-info">
-                <img src="https://via.placeholder.com/40" alt="User">
+                <img src="profile_user.svg" alt="User">
                 <span>{{ user_name }}</span>
             </div>
         </div>
@@ -164,14 +175,43 @@
         <div class="row" id="classesContainer">
             <!-- Classes will be dynamically populated here -->
         </div>
+
+        <!-- Substitute Section -->
+        <div class="substitute-section">
+            <h2>Assign Substitute Faculty</h2>
+            <div class="row" id="assignSubstituteContainer">
+                <!-- Substitute assignment form will be dynamically populated here -->
+            </div>
+
+
+        </div>
+        <!-- Substitute Section -->
+        <div class="substitute-section">
+            <h2>Substitute Assignments</h2>
+            <div class="row" id="substituteAssignmentsContainer">
+                <!-- Substitute assignments will be dynamically populated here -->
+                <div class="no-data">
+                    <p>No substitute classes assigned.</p>
+                </div>
+            </div>
+            <h2>Substitute Classes</h2>
+            <div class="row" id="substituteClassesContainer">
+                <!-- Substitute classes will be dynamically populated here -->
+                <div class="no-data">
+                    <p>No substitute classes assigned.</p>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 
 <!-- Bootstrap JS (Optional for animations) -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
-<!-- JavaScript to Fetch and Display Classes -->
+<!-- JavaScript to Fetch and Display Classes and Substitute Assignments -->
 <script>
     document.addEventListener('DOMContentLoaded', function () {
+        const facultyId = "{{ user_id }}"; // Logged-in faculty ID
+
         // Fetch the faculty's assigned classes
         fetch('/fetch-faculty-classes')
             .then(response => response.json())
@@ -182,21 +222,189 @@
 
                     data.classes.forEach(cls => {
                         const card = `
-                                <div class="col-md-4">
-                                    <div class="card">
-                                        <h5>Class: ${cls.subject_name} - ${cls.section_name}</h5>
-                                        <a href="/faculty-attendance?subject_id=${cls.subject_id}&section_name=${cls.section_name}" class="btn btn-primary">View Attendance</a>
-                                        <a href="/mark-attendance?faculty_id={{user_id}}&subject_id=${cls.subject_id }&section_name=${cls.section_name }" class="btn btn-success">Mark Attendance</a>
-                                    </div>
+                            <div class="col-md-4">
+                                <div class="card">
+                                    <h5>${cls.subject_name} - ${cls.section_name}</h5>
+                                    <a href="/faculty-attendance?subject_id=${cls.subject_id}&section_name=${cls.section_name}" class="btn btn-primary">View Attendance</a>
+                                    <a href="/mark-attendance?faculty_id=${facultyId}&subject_id=${cls.subject_id}&section_name=${cls.section_name}" class="btn btn-success">Mark Attendance</a>
                                 </div>
-                            `;
+                            </div>
+                        `;
                         classesContainer.insertAdjacentHTML('beforeend', card);
                     });
                 } else {
                     alert('Error fetching classes: ' + data.message);
                 }
             });
+
+        // Fetch faculty for substitute assignment
+        fetch('/fetch-faculty')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    const facultySelect = document.createElement('select');
+                    facultySelect.id = 'substituteFacultySelect';
+                    facultySelect.className = 'form-control';
+                    facultySelect.innerHTML = '<option value="">Select Substitute Faculty</option>';
+                    data.faculty.forEach(faculty => {
+                        if (faculty.faculty_id !== facultyId) { // Exclude the logged-in faculty
+                            facultySelect.innerHTML += `<option value="${faculty.faculty_id}">${faculty.name}</option>`;
+                        }
+                    });
+
+                    // Populate the substitute assignment form
+                    const assignSubstituteContainer = document.getElementById('assignSubstituteContainer');
+                    assignSubstituteContainer.innerHTML = `
+                        <div class="col-md-12">
+                            <div class="card">
+                                <h5>Assign Substitute</h5>
+                                <form id="assignSubstituteForm">
+                                    <div class="form-group">
+                                        <label for="classSelect">Select Class</label>
+                                        <select class="form-control" id="classSelect" required>
+                                            <!-- Classes will be populated dynamically -->
+                                        </select>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="substituteFacultySelect">Select Substitute Faculty</label>
+                                        ${facultySelect.outerHTML}
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="dateInput">Date</label>
+                                        <input type="date" class="form-control" id="dateInput" required>
+                                    </div>
+                                    <button type="submit" class="btn btn-primary">Assign Substitute</button>
+                                </form>
+                            </div>
+                        </div>
+                    `;
+
+                    // Populate the class dropdown
+                    fetch('/fetch-faculty-classes')
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.success) {
+                                const classSelect = document.getElementById('classSelect');
+                                data.classes.forEach(cls => {
+                                    classSelect.innerHTML += `<option value="${cls.subject_id}-${cls.section_name}">${cls.subject_name} - ${cls.section_name}</option>`;
+                                });
+                            }
+                        });
+
+                    // Handle form submission
+                    document.getElementById('assignSubstituteForm').addEventListener('submit', function (e) {
+                        e.preventDefault();
+
+                        const classValue = document.getElementById('classSelect').value;
+                        const [subjectId, sectionName] = classValue.split('-');
+                        const substituteFacultyId = document.getElementById('substituteFacultySelect').value;
+                        const date = document.getElementById('dateInput').value;
+
+                        fetch('/assign-substitute', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({
+                                substitute_faculty_id: substituteFacultyId,
+                                subject_id: subjectId,
+                                section_name: sectionName,
+                                date: date,
+                            }),
+                        })
+                            .then(response => response.json())
+                            .then(data => {
+                                if (data.success) {
+                                    alert('Substitute assigned successfully!');
+                                    location.reload(); // Refresh the page to update the list
+                                } else {
+                                    alert('Error: ' + data.message);
+                                }
+                            });
+                    });
+                }
+            });
+
+        // Fetch substitute assignments
+        fetch('/fetch-substitute-assignments')
+            .then(response => response.json())
+            .then(data => {
+                const container = document.getElementById('substituteAssignmentsContainer');
+                container.innerHTML = '';
+
+                if (data.success && data.substitute_assignments.length > 0) {
+                    data.substitute_assignments.forEach(assignment => {
+                        const card = `
+                            <div class="col-md-4">
+                                <div class="card">
+                                    <h5>${assignment.subject_name} - ${assignment.section_name}</h5>
+                                    <p>Assigned to: ${assignment.substitute_faculty_name}</p>
+                                    <p>Date: ${assignment.date}</p>
+                                </div>
+                            </div>
+                        `;
+                        container.insertAdjacentHTML('beforeend', card);
+                    });
+                } else {
+                    container.innerHTML = `<div class="no-data"><p>No substitute assignments yet.</p></div>`;
+                }
+            });
+    });
+
+
+    document.addEventListener('DOMContentLoaded', function () {
+        const facultyId = "{{ user_id }}"; // Logged-in faculty ID
+
+        // Fetch the faculty's assigned classes
+        fetch('/fetch-faculty-classes')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    const classesContainer = document.getElementById('classesContainer');
+                    classesContainer.innerHTML = ''; // Clear existing content
+
+                    data.classes.forEach(cls => {
+                        const card = `
+                            <div class="col-md-4">
+                                <div class="card">
+                                    <h5>${cls.subject_name} - ${cls.section_name}</h5>
+                                    <a href="/faculty-attendance?subject_id=${cls.subject_id}&section_name=${cls.section_name}" class="btn btn-primary">View Attendance</a>
+                                    <a href="/mark-attendance?faculty_id=${facultyId}&subject_id=${cls.subject_id}&section_name=${cls.section_name}" class="btn btn-success">Mark Attendance</a>
+                                </div>
+                            </div>
+                        `;
+                        classesContainer.insertAdjacentHTML('beforeend', card);
+                    });
+                } else {
+                    alert('Error fetching classes: ' + data.message);
+                }
+            });
+
+        // Fetch substitute classes for the logged-in substitute faculty
+         fetch('/fetch-substitute-classes-for-substitute')
+            .then(response => response.json())
+            .then(data => {
+                const container = document.getElementById('substituteClassesContainer');
+                container.innerHTML = '';
+
+                if (data.success && data.substitute_classes.length > 0) {
+                    data.substitute_classes.forEach(cls => {
+                        const card = `
+                            <div class="col-md-4">
+                                <div class="card">
+                                    <h5>${cls.subject_name} - ${cls.section_name}</h5>
+                                    <p>Assigned by: ${cls.original_faculty_name}</p>
+                                    <p>Date: ${cls.date}</p>
+                                    <a href="/mark-attendance?faculty_id=${facultyId}&subject_id=${cls.subject_id}&section_name=${cls.section_name}" class="btn btn-success">Mark Attendance</a>
+                                </div>
+                            </div>
+                        `;
+                        container.insertAdjacentHTML('beforeend', card);
+                    });
+                } else {
+                    container.innerHTML = `<div class="no-data"><p>No substitute classes assigned.</p></div>`;
+                }
+            });
     });
 </script>
 </body>
-</html>

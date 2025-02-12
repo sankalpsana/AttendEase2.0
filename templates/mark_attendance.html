@@ -180,6 +180,20 @@
                 padding: 8px; /* Smaller padding for mobile */
                 font-size: 0.8rem; /* Smaller font size for mobile */
             }
+
+            #cameraSelect {
+                background-color: #2575fc;
+                color: white;
+                border: none;
+                padding: 10px 20px;
+                border-radius: 5px;
+                cursor: pointer;
+                transition: background-color 0.3s ease;
+            }
+
+            #cameraSelect:hover {
+                background-color: #1a5bbf;
+            }
         }
     </style>
 </head>
@@ -201,8 +215,8 @@
         <div class="header">
             <h1>Take Attendance - Section {{ section_name }}</h1>
             <div class="user-info">
-                <img src="https://via.placeholder.com/40" alt="User">
-                <span>Dr. John Doe</span>
+                <img src="profile_user.svg" alt="User">
+                <span>{{ username }}</span>
             </div>
         </div>
 
@@ -212,6 +226,9 @@
             <div class="webcam-container">
                 <h5>Live Video Feed</h5>
                 <video id="video" width="640" height="480" autoplay></video>
+                <select id="cameraSelect" class="form-select mt-2">
+                    <option value="">Select Camera</option>
+                </select>
             </div>
 
             <!-- Attendance Boxes -->
@@ -238,8 +255,52 @@
     // Access the webcam
     const video = document.getElementById('video');
     let stream;
+    let currentFacingMode = 'user'; // 'user' for front camera, 'environment' for back camera
     let detectedStudents = new Set();
 
+    async function getCameras() {
+        try {
+            const devices = await navigator.mediaDevices.enumerateDevices();
+            const videoDevices = devices.filter(device => device.kind === 'videoinput');
+            cameraSelect.innerHTML = '<option value="">Select Camera</option>'; // Reset dropdown
+            videoDevices.forEach((device, index) => {
+                cameraSelect.innerHTML += `<option value="${device.deviceId}">Camera ${index + 1}</option>`;
+            });
+        } catch (err) {
+            console.error("Error enumerating cameras:", err);
+        }
+    }
+
+    // Function to start the camera with the specified deviceId
+    async function startCamera(deviceId) {
+        const constraints = {
+            video: {deviceId: deviceId ? {exact: deviceId} : undefined}
+        };
+
+        try {
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop()); // Stop the current stream
+            }
+
+            stream = await navigator.mediaDevices.getUserMedia(constraints);
+            video.srcObject = stream;
+        } catch (err) {
+            console.error("Error accessing camera:", err);
+        }
+    }
+
+    // Initialize cameras and start the default camera
+    getCameras();
+    startCamera();
+
+    // Switch camera when a new option is selected
+    cameraSelect.addEventListener('change', () => {
+        const selectedDeviceId = cameraSelect.value;
+        startCamera(selectedDeviceId);
+    });
+
+
+    //
     navigator.mediaDevices.getUserMedia({video: true})
         .then((streamObj) => {
             stream = streamObj;
@@ -266,50 +327,50 @@
     });
 
     // Submit attendance
-const stopButton = document.getElementById('stopButton');
-stopButton.addEventListener('click', () => {
-    const presentStudents = [];
-    const allStudents = [];
+    const stopButton = document.getElementById('stopButton');
+    stopButton.addEventListener('click', () => {
+        const presentStudents = [];
+        const allStudents = [];
 
-    // Get all student IDs from the attendance boxes
-    document.querySelectorAll('.attendance-box').forEach(box => {
-        allStudents.push(box.getAttribute('data-student-id'));
-    });
-
-    // Get present student IDs
-    document.querySelectorAll('.attendance-box.present').forEach(box => {
-        presentStudents.push(box.getAttribute('data-student-id'));
-    });
-
-    // Calculate absent students
-    const absentStudents = allStudents.filter(studentId => !presentStudents.includes(studentId));
-
-    // Send attendance data to the backend
-    fetch('/submit-attendance', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-            faculty_id: '{{ faculty_id }}',
-            subject_id: '{{ subject_id }}',
-            section_name: '{{ section_name }}',
-            present_students: presentStudents,
-            absent_students: absentStudents, // Include absent students
-        }),
-    })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                alert("Attendance submitted successfully!");
-            } else {
-                alert("Error submitting attendance: " + data.message);
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
+        // Get all student IDs from the attendance boxes
+        document.querySelectorAll('.attendance-box').forEach(box => {
+            allStudents.push(box.getAttribute('data-student-id'));
         });
-});
+
+        // Get present student IDs
+        document.querySelectorAll('.attendance-box.present').forEach(box => {
+            presentStudents.push(box.getAttribute('data-student-id'));
+        });
+
+        // Calculate absent students
+        const absentStudents = allStudents.filter(studentId => !presentStudents.includes(studentId));
+
+        // Send attendance data to the backend
+        fetch('/submit-attendance', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                faculty_id: '{{ faculty_id }}',
+                subject_id: '{{ subject_id }}',
+                section_name: '{{ section_name }}',
+                present_students: presentStudents,
+                absent_students: absentStudents, // Include absent students
+            }),
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert("Attendance submitted successfully!");
+                } else {
+                    alert("Error submitting attendance: " + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+            });
+    });
 
     // Send video frames to the backend for facial recognition
     function sendFrame() {
