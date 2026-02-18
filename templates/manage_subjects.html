@@ -1,298 +1,150 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Manage Subjects - Anurag University</title>
-    <!-- Bootstrap CSS -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
-    <!-- Font Awesome for Icons -->
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
-    <!-- Custom CSS -->
-    <style>
-        /* Add your custom styles here */
-        body {
-            background: linear-gradient(135deg, #6a11cb, #2575fc);
-            font-family: Arial, sans-serif;
-            color: #333;
-            min-height: 100vh;
-        }
-        .dashboard-wrapper {
-            display: flex;
-            min-height: 100vh;
-            animation: fadeIn 1s ease-in-out;
-        }
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(-20px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        /* Sidebar */
-        .sidebar {
-            width: 250px;
-            background: rgba(255, 255, 255, 0.9);
-            padding: 1.5rem;
-            box-shadow: 4px 0 15px rgba(0, 0, 0, 0.1);
-        }
-        .sidebar h3 {
-            color: #333;
-            font-weight: bold;
-            margin-bottom: 2rem;
-        }
-        .sidebar ul {
-            list-style: none;
-            padding: 0;
-        }
-        .sidebar ul li {
-            margin-bottom: 1rem;
-        }
-        .sidebar ul li a {
-            text-decoration: none;
-            color: #333;
-            font-size: 1rem;
-            transition: color 0.3s ease;
-        }
-        .sidebar ul li a:hover {
-            color: #2575fc;
-        }
-        /* Main Content */
-        .main-content {
-            flex: 1;
-            padding: 2rem;
-            background: rgba(255, 255, 255, 0.9);
-            margin: 1rem;
-            border-radius: 10px;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-        }
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 2rem;
-        }
-        .header h1 {
-            color: #333;
-            font-weight: bold;
-        }
-        .user-info {
-            display: flex;
-            align-items: center;
-        }
-        .user-info img {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            margin-right: 0.5rem;
-        }
-        .user-info span {
-            color: #333;
-            font-weight: bold;
-        }
-        /* Cards */
-        .card {
-            background: #fff;
-            border: none;
-            border-radius: 10px;
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
-            padding: 1.5rem;
-            margin-bottom: 1.5rem;
-            transition: transform 0.3s ease;
-        }
-        .card:hover {
-            transform: translateY(-5px);
-        }
-        .card h5 {
-            color: #333;
-            font-weight: bold;
-            margin-bottom: 1rem;
-        }
-        .card p {
-            color: #666;
-        }
-        .card .btn {
-            margin-right: 0.5rem;
-        }
-        /* Table */
-        .table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 1rem;
-        }
-        .table th, .table td {
-            padding: 0.75rem;
-            border-bottom: 1px solid #ddd;
-            text-align: left;
-        }
-        .table th {
-            background-color: #f8f9fa;
-            font-weight: bold;
-        }
-        .table tr:hover {
-            background-color: #f1f1f1;
-        }
-    </style>
-</head>
-<body>
-    <div class="dashboard-wrapper">
-        <!-- Sidebar -->
-        <div class="sidebar">
-            <h3>Admin Dashboard</h3>
-            <ul>
-            <li><a href="/dashboard"><i class="fas fa-dashboard"></i> Dashboard</a></li>
-            <li><a href="/manage-students"><i class="fas fa-graduation-cap "></i> Manage Students</a></li>
-            <li><a href="/manage-faculty"><i class="fas fa-user"></i> Manage Faculty</a></li>
-            <li><a href="/manage-subjects"><i class="fas fa-book"></i> Manage Courses</a></li>
-            <li><a href="/manage-sections"><i class="fas fa-chalkboard"></i> Manage Sections</a></li>
-            <li><a href="/admin-analytics"><i class="fas fa-bar-chart "></i> Analytics</a></li>
-            <li><a href="/logout"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
-            </ul>
+{% extends "base.html" %}
+
+{% block title %}Manage Subjects - AttendEase{% endblock %}
+
+{% block header %}Manage Subjects{% endblock %}
+
+{% block content %}
+<div class="content-card">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div class="input-group search-box" style="width: 300px;">
+            <span class="input-group-text"><i class="fas fa-search text-muted"></i></span>
+            <input type="text" id="searchSubject" class="form-control" placeholder="Search subjects...">
         </div>
+        <button class="btn btn-gradient" data-bs-toggle="modal" data-bs-target="#addSubjectModal">
+            <i class="fas fa-plus me-2"></i>Add Subject
+        </button>
+    </div>
 
-        <!-- Main Content -->
-        <div class="main-content">
-            <!-- Header -->
-            <div class="header">
-                <h1>Manage Subjects</h1>
-                <div class="user-info">
-                    <img src="profile_user.svg" alt="User">
-                    <span>{{ session.name }}</span>
-                </div>
+    <div class="table-responsive">
+        <table class="table table-hover">
+            <thead>
+                <tr>
+                    <th>Subject ID</th>
+                    <th>Subject Name</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody id="subjectTableBody">
+                <!-- Subjects will be dynamically populated here -->
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Add Subject Modal -->
+<div class="modal fade" id="addSubjectModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add New Subject</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-
-            <!-- Flash Messages -->
-            {% with messages = get_flashed_messages() %}
-                {% if messages %}
-                    <div class="alert alert-success">
-                        {% for message in messages %}
-                            {{ message }}
-                        {% endfor %}
-                    </div>
-                {% endif %}
-            {% endwith %}
-
-            <!-- Add Subject Form -->
-            <div class="card">
-                <h5>Add New Subject</h5>
-                <form id="add-subject-form">
+            <div class="modal-body">
+                <form id="addSubjectForm">
                     <div class="mb-3">
-                        <input type="text" class="form-control" id="subject-name" placeholder="Subject Name" required>
+                        <label class="form-label">Subject Name</label>
+                        <input type="text" class="form-control" id="subjectName" required>
                     </div>
-                    <button type="submit" class="btn btn-primary">Add Subject</button>
                 </form>
             </div>
-
-            <!-- Subjects Table -->
-            <div class="card">
-                <h5>Subjects</h5>
-                <input type="text" id="search-subject" class="form-control mb-3" placeholder="Search subjects...">
-                <table class="table" id="subjects-table">
-                    <thead>
-                        <tr>
-                            <th>Subject ID</th>
-                            <th>Subject Name</th>
-                            <th>Action</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <!-- Subjects will be dynamically populated here -->
-                    </tbody>
-                </table>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" onclick="submitAddSubject()">Add Subject</button>
             </div>
         </div>
     </div>
+</div>
+{% endblock %}
 
-    <!-- Bootstrap JS (Optional for animations) -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
-    <!-- JavaScript to Handle Form Submission and Table Updates -->
-    <script>
-        // Fetch and display subjects
-        function fetchSubjects() {
-            fetch('/fetch-subjects')
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        const tbody = document.querySelector('#subjects-table tbody');
-                        tbody.innerHTML = ''; // Clear existing rows
-                        data.subjects.forEach(subject => {
-                            const row = `
-                                <tr>
-                                    <td>${subject.subject_id}</td>
-                                    <td>${subject.subject_name}</td>
-                                    <td>
-                                        <button class="btn btn-danger btn-sm" onclick="deleteSubject(${subject.subject_id})">Delete</button>
-                                    </td>
-                                </tr>
-                            `;
-                            tbody.insertAdjacentHTML('beforeend', row);
-                        });
-                    }
-                });
-        }
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', fetchSubjects);
 
-        // Add subject
-        document.getElementById('add-subject-form').addEventListener('submit', function (e) {
-            e.preventDefault();
-            const subjectName = document.getElementById('subject-name').value;
+    function fetchSubjects() {
+        const tbody = document.getElementById('subjectTableBody');
+        tbody.innerHTML = '<tr><td colspan="3" class="text-center">Loading...</td></tr>';
 
-            fetch('/add-subject', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ subject_name: subjectName }),
-            })
-            .then(response => response.json())
+        fetch('/fetch-subjects')
+            .then(res => res.json())
             .then(data => {
-                if (data.success) {
-                    alert('Subject added successfully!');
-                    fetchSubjects(); // Refresh the table
+                tbody.innerHTML = '';
+                if (data.success && data.subjects.length > 0) {
+                    data.subjects.forEach(subject => {
+                        const row = `
+                            <tr>
+                                <td>${subject.subject_id}</td> <!-- ID -->
+                                <td>${subject.subject_name}</td> <!-- Name -->
+                                <td>
+                                    <button class="btn btn-danger action-btn" onclick="deleteSubject(${subject.subject_id})">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                        `;
+                        tbody.innerHTML += row;
+                    });
                 } else {
-                    alert('Error: ' + data.message);
+                    tbody.innerHTML = '<tr><td colspan="3" class="text-center text-muted">No subjects found</td></tr>';
                 }
             })
-            .catch(error => {
-                console.error('Error:', error);
-                alert('An error occurred while adding the subject.');
+            .catch(err => {
+                console.error(err);
+                tbody.innerHTML = '<tr><td colspan="3" class="text-center text-danger">Error fetching subjects</td></tr>';
             });
-        });
+    }
 
-        // Delete subject
-        function deleteSubject(subjectId) {
-            if (confirm('Are you sure you want to delete this subject?')) {
-                fetch(`/delete-subject/${subjectId}`, {
-                    method: 'DELETE',
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        alert('Subject deleted successfully!');
-                        fetchSubjects(); // Refresh the table
-                    } else {
-                        alert('Error: ' + data.message);
-                    }
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    alert('An error occurred while deleting the subject.');
-                });
-            }
+    // --- Search ---
+    document.getElementById('searchSubject').addEventListener('input', function () {
+        const value = this.value.toLowerCase();
+        const rows = document.querySelectorAll('#subjectTableBody tr');
+        rows.forEach(row => {
+            const text = row.innerText.toLowerCase();
+            row.style.display = text.includes(value) ? '' : 'none';
+        });
+    });
+
+    // --- Add Subject ---
+    const addModal = new bootstrap.Modal(document.getElementById('addSubjectModal'));
+
+    function submitAddSubject() {
+        const name = document.getElementById('subjectName').value;
+        if (!name) {
+            alert("Please enter subject name.");
+            return;
         }
 
-        // Search subjects
-        document.getElementById('search-subject').addEventListener('input', function (e) {
-            const searchTerm = e.target.value.toLowerCase();
-            const rows = document.querySelectorAll('#subjects-table tbody tr');
-            rows.forEach(row => {
-                const subjectName = row.querySelector('td:nth-child(2)').textContent.toLowerCase();
-                if (subjectName.includes(searchTerm)) {
-                    row.style.display = '';
+        fetch('/add-subject', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ subject_name: name })
+        })
+            .then(res => res.json())
+            .then(res => {
+                if (res.success) {
+                    alert("Subject added!");
+                    addModal.hide();
+                    document.getElementById('addSubjectForm').reset();
+                    fetchSubjects();
                 } else {
-                    row.style.display = 'none';
+                    alert(res.message);
                 }
             });
-        });
+    }
 
-        // Fetch subjects on page load
-        fetchSubjects();
-    </script>
-</body>
-</html>
+    // --- Delete Subject ---
+    function deleteSubject(id) {
+        if (confirm('Delete this subject?')) {
+            fetch(`/delete-subject/${id}`, { method: 'DELETE' })
+                .then(res => res.json())
+                .then(res => {
+                    if (res.success) {
+                        fetchSubjects();
+                    } else {
+                        alert(res.message);
+                    }
+                });
+        }
+    }
+</script>
+{% endblock %}

@@ -1,296 +1,149 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Faculty Attendance - Anurag University</title>
-    <!-- Bootstrap CSS -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
-    <!-- Font Awesome for Icons -->
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
-    <!-- Chart.js -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <!-- Custom CSS -->
-    <style>
-        body {
-            background: linear-gradient(135deg, #6a11cb, #2575fc);
-            font-family: Arial, sans-serif;
-            color: #333;
-            min-height: 100vh;
-        }
+{% extends "base.html" %}
 
-        .dashboard-wrapper {
-            display: flex;
-            min-height: 100vh;
-            animation: fadeIn 1s ease-in-out;
-        }
+{% block title %}Faculty Attendance - AttendEase{% endblock %}
 
-        @keyframes fadeIn {
-            from {
-                opacity: 0;
-                transform: translateY(-20px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
+{% block header %}Attendance - {{ subject_name }} ({{ section_name }}){% endblock %}
 
-        /* Sidebar */
-        .sidebar {
-            width: 250px;
-            background: rgba(255, 255, 255, 0.9);
-            padding: 1.5rem;
-            box-shadow: 4px 0 15px rgba(0, 0, 0, 0.1);
-        }
-
-        .sidebar h3 {
-            color: #333;
-            font-weight: bold;
-            margin-bottom: 2rem;
-        }
-
-        .sidebar ul {
-            list-style: none;
-            padding: 0;
-        }
-
-        .sidebar ul li {
-            margin-bottom: 1rem;
-        }
-
-        .sidebar ul li a {
-            text-decoration: none;
-            color: #333;
-            font-size: 1rem;
-            transition: color 0.3s ease;
-        }
-
-        .sidebar ul li a:hover {
-            color: #2575fc;
-        }
-
-        /* Main Content */
-        .main-content {
-            flex: 1;
-            padding: 2rem;
-            background: rgba(255, 255, 255, 0.9);
-            margin: 1rem;
-            border-radius: 10px;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-        }
-
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 2rem;
-        }
-
-        .header h1 {
-            color: #333;
-            font-weight: bold;
-        }
-
-        .user-info {
-            display: flex;
-            align-items: center;
-        }
-
-        .user-info img {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            margin-right: 0.5rem;
-        }
-
-        .user-info span {
-            color: #333;
-            font-weight: bold;
-        }
-
-        /* Cards */
-        .card {
-            background: #fff;
-            border: none;
-            border-radius: 10px;
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
-            padding: 1.5rem;
-            margin-bottom: 1.5rem;
-            transition: transform 0.3s ease;
-        }
-
-        .card:hover {
-            transform: translateY(-5px);
-        }
-
-        .card h5 {
-            color: #333;
-            font-weight: bold;
-            margin-bottom: 1rem;
-        }
-
-        .card p {
-            color: #666;
-        }
-
-        .card .btn {
-            margin-right: 0.5rem;
-        }
-
-        /* Pie Chart Container */
-        .chart-container {
-            width: 300px; /* Adjust the width as needed */
-            height: 300px; /* Adjust the height as needed */
-            margin: 0 auto; /* Center the chart */
-        }
-    </style>
-</head>
-<body>
-<div class="dashboard-wrapper">
-    <!-- Sidebar -->
-    <div class="sidebar">
-        <h3>Faculty Dashboard</h3>
-        <ul>
-            <li><a href="/dashboard"><i class="fas fa-dashboard"></i> Dashboard</a></li>
-            <li><a href="/dashboard"><i class="fas fa-bar-chart"></i> Analytics</a></li>
-            <li><a href="/logout"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
-        </ul>
+{% block content %}
+<div class="row g-4">
+    <!-- Attendance Summary -->
+    <div class="col-md-5">
+        <div class="content-card h-100">
+            <h5 class="mb-4 text-primary">Attendance Summary</h5>
+            <div class="chart-container" style="position: relative; height:250px; width:100%">
+                <canvas id="attendanceChart"></canvas>
+            </div>
+        </div>
     </div>
 
-    <!-- Main Content -->
-    <div class="main-content">
-        <!-- Header -->
-        <div class="header">
-            <h1>Welcome, {{ user_name }}!</h1>
-            <div class="user-info">
-                <img src="profile_user.svg" alt="User">
-                <span>{{ user_name }}</span>
-            </div>
-        </div>
-
-        <!-- Cards for Quick Info -->
-        <div class="row">
-            <!-- Attendance Summary -->
-            <div class="col-md-12">
-                <div class="card">
-                    <h5>Attendance Summary</h5>
-                    <div class="chart-container">
-                        <canvas id="attendanceChart"></canvas>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Student Attendance Table -->
-        <div class="row mt-4">
-            <div class="col-12">
-                <div class="card">
-                    <h5>Student Attendance for {{ subject_name }} (Section: {{ section_name }})</h5>
-                    <table class="table">
-                        <thead>
+    <!-- Student List -->
+    <div class="col-md-7">
+        <div class="content-card h-100">
+            <h5 class="mb-4 text-success">Student List</h5>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead>
                         <tr>
-                            <th>Student Name</th>
-                            <th>Roll Number</th>
-                            <th>Attendance Percentage</th>
+                            <th>Student</th>
+                            <th>Roll No.</th>
+                            <th>Attendance</th>
                             <th>Action</th>
                         </tr>
-                        </thead>
-                        <tbody>
+                    </thead>
+                    <tbody>
                         {% for student in students %}
-                            <tr>
-                                <td>{{ student.name }}</td>
-                                <td>{{ student.roll_number }}</td>
-                                <td>{{ student.attendance_percentage }}%</td>
-                                <td>
-                                    <button class="btn btn-primary btn-sm" data-bs-toggle="modal"
-                                            data-bs-target="#attendanceModal{{ student.roll_number }}">
-                                        View Details
-                                    </button>
-                                </td>
-                            </tr>
+                        <tr>
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    <div class="rounded-circle bg-light d-flex align-items-center justify-content-center me-2"
+                                        style="width: 32px; height: 32px;">
+                                        <i class="fas fa-user text-muted"></i>
+                                    </div>
+                                    {{ student.name }}
+                                </div>
+                            </td>
+                            <td>{{ student.roll_number }}</td>
+                            <td>
+                                <div class="progress" style="height: 6px; width: 80px;">
+                                    <div class="progress-bar {% if student.attendance_percentage < 75 %}bg-danger{% else %}bg-success{% endif %}"
+                                        role="progressbar" data-width="{{ student.attendance_percentage|default(0) }}">
+                                    </div>
+                                </div>
+                                <small class="text-muted">{{ student.attendance_percentage }}%</small>
+                            </td>
+                            <td>
+                                <button class="btn btn-sm btn-outline-primary rounded-pill" data-bs-toggle="modal"
+                                    data-bs-target="#attendanceModal{{ student.roll_number }}">
+                                    Details
+                                </button>
+                            </td>
+                        </tr>
                         {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
+                    </tbody>
+                </table>
             </div>
         </div>
     </div>
 </div>
 
-<!-- Modals for Attendance Details -->
+<!-- Modals -->
 {% for student in students %}
-    <div class="modal fade" id="attendanceModal{{ student.roll_number }}" tabindex="-1"
-         aria-labelledby="attendanceModalLabel{{ student.roll_number }}" aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="attendanceModalLabel{{ student.roll_number }}">Attendance Details
-                        for {{ student.name }}</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <table class="table">
+<div class="modal fade" id="attendanceModal{{ student.roll_number }}" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">{{ student.name }} - Attendance</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="table-responsive">
+                    <table class="table table-sm">
                         <thead>
-                        <tr>
-                            <th>Date</th>
-                            <th>Status</th>
-                        </tr>
+                            <tr>
+                                <th>Date</th>
+                                <th>Status</th>
+                            </tr>
                         </thead>
                         <tbody>
-                        {% for record in student.attendance_records %}
+                            {% for record in student.attendance_records %}
                             <tr>
                                 <td>{{ record.date }}</td>
-                                <td>{{ record.status }}</td>
+                                <td>
+                                    {% if record.status == 'Present' %}
+                                    <span class="badge bg-success">Present</span>
+                                    {% else %}
+                                    <span class="badge bg-danger">Absent</span>
+                                    {% endif %}
+                                </td>
                             </tr>
-                        {% endfor %}
+                            {% endfor %}
                         </tbody>
                     </table>
                 </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
             </div>
         </div>
     </div>
+</div>
 {% endfor %}
+{% endblock %}
 
-<!-- Bootstrap JS (Optional for animations) -->
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-    // Pie Chart for Attendance Summary
+    // Safely inject variables
+    var present = Number("{{ present_percentage|default(0) }}");
+    var absent = Number("{{ absent_percentage|default(0) }}");
+
     var ctx = document.getElementById('attendanceChart').getContext('2d');
     var attendanceChart = new Chart(ctx, {
-        type: 'pie',
+        type: 'doughnut',
         data: {
             labels: ['Present', 'Absent'],
             datasets: [{
-                label: 'Attendance',
-                data: [{{ present_percentage }}, {{ absent_percentage }}],
-                backgroundColor: [
-                    'rgba(75, 192, 192, 0.2)',
-                    'rgba(255, 99, 132, 0.2)'
-                ],
-                borderColor: [
-                    'rgba(75, 192, 192, 1)',
-                    'rgba(255, 99, 132, 1)'
-                ],
-                borderWidth: 1
+                data: [present, absent],
+                backgroundColor: ['#38ef7d', '#ff6b6b'],
+                borderWidth: 0,
+                hoverOffset: 4
             }]
         },
         options: {
             responsive: true,
-            maintainAspectRatio: false, // Disable aspect ratio to control size
+            maintainAspectRatio: false,
             plugins: {
                 legend: {
-                    position: 'top',
-                },
-                tooltip: {
-                    enabled: true
+                    position: 'bottom'
                 }
             }
         }
     });
+    // Apply progress bar widths dynamically to avoid parser errors
+    document.querySelectorAll('.progress-bar').forEach(bar => {
+        if (bar.dataset.width) {
+            bar.style.width = bar.dataset.width + '%';
+        }
+    });
 </script>
-</body>
-</html>
+{% endblock %}

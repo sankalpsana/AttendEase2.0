@@ -1,239 +1,102 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Faculty Dashboard - Anurag University</title>
-    <!-- Bootstrap CSS -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
-    <!-- Font Awesome for Icons -->
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
-    <!-- Custom CSS -->
-    <style>
-        body {
-            background: linear-gradient(135deg, #6a11cb, #2575fc);
-            font-family: Arial, sans-serif;
-            color: #333;
-            min-height: 100vh;
-        }
+{% extends "base.html" %}
 
-        .dashboard-wrapper {
-            display: flex;
-            min-height: 100vh;
-            animation: fadeIn 1s ease-in-out;
-        }
+{% block title %}Faculty Dashboard - AttendEase{% endblock %}
 
-        @keyframes fadeIn {
-            from {
-                opacity: 0;
-                transform: translateY(-20px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
+{% block header %}Faculty Dashboard{% endblock %}
 
-        /* Sidebar */
-        .sidebar {
-            width: 250px;
-            background: rgba(255, 255, 255, 0.9);
-            padding: 1.5rem;
-            box-shadow: 4px 0 15px rgba(0, 0, 0, 0.1);
-        }
-
-        .sidebar h3 {
-            color: #333;
-            font-weight: bold;
-            margin-bottom: 2rem;
-        }
-
-        .sidebar ul {
-            list-style: none;
-            padding: 0;
-        }
-
-        .sidebar ul li {
-            margin-bottom: 1rem;
-        }
-
-        .sidebar ul li a {
-            text-decoration: none;
-            color: #333;
-            font-size: 1rem;
-            transition: color 0.3s ease;
-        }
-
-        .sidebar ul li a:hover {
-            color: #2575fc;
-        }
-
-        /* Main Content */
-        .main-content {
-            flex: 1;
-            padding: 2rem;
-            background: rgba(255, 255, 255, 0.9);
-            margin: 1rem;
-            border-radius: 10px;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-        }
-
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 2rem;
-        }
-
-        .header h1 {
-            color: #333;
-            font-weight: bold;
-        }
-
-        .user-info {
-            display: flex;
-            align-items: center;
-        }
-
-        .user-info img {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            margin-right: 0.5rem;
-        }
-
-        .user-info span {
-            color: #333;
-            font-weight: bold;
-        }
-
-        /* Cards */
-        .card {
-            background: #fff;
-            border: none;
-            border-radius: 10px;
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
-            padding: 1.5rem;
-            margin-bottom: 1.5rem;
-            transition: transform 0.3s ease;
-        }
-
-        .card:hover {
-            transform: translateY(-5px);
-        }
-
-        .card h5 {
-            color: #333;
-            font-weight: bold;
-            margin-bottom: 1rem;
-        }
-
-        .card p {
-            color: #666;
-        }
-
-        .card .btn {
-            margin-right: 0.5rem;
-        }
-            .no-data {
-        width: 100%;
-        text-align: center;
-        color: #666;
-        font-style: italic;
-        padding: 1rem;
-        background: rgba(255, 255, 255, 0.8);
-        border-radius: 10px;
-        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-        margin: 1rem 0;
-    }
-    </style>
-</head>
-<body>
-<div class="dashboard-wrapper">
-    <!-- Sidebar -->
-    <div class="sidebar">
-        <h3>Faculty Dashboard</h3>
-        <ul>
-            <li><a href="/dashboard"><i class="fas fa-dashboard"></i> Dashboard</a></li>
-            <li><a href="/dashboard"><i class="fas fa-bar-chart"></i> Analytics</a></li>
-            <li><a href="/logout"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
-        </ul>
+{% block content %}
+<!-- My Classes -->
+<div class="mb-5">
+    <h4 class="mb-3 text-white"><i class="fas fa-chalkboard me-2"></i>My Classes</h4>
+    <div class="row g-4" id="classesContainer">
+        <!-- Classes will be dynamically populated here -->
+        <div class="col-12 text-center text-white">Loading classes...</div>
     </div>
+</div>
 
-    <!-- Main Content -->
-    <div class="main-content">
-        <!-- Header -->
-        <div class="header">
-            <h1>My Classes</h1>
-            <div class="user-info">
-                <img src="profile_user.svg" alt="User">
-                <span>{{ user_name }}</span>
-            </div>
-        </div>
-
-        <!-- Cards for Classes -->
-        <div class="row" id="classesContainer">
-            <!-- Classes will be dynamically populated here -->
-        </div>
-
-        <!-- Substitute Section -->
-        <div class="substitute-section">
-            <h2>Assign Substitute Faculty</h2>
-            <div class="row" id="assignSubstituteContainer">
-                <!-- Substitute assignment form will be dynamically populated here -->
-            </div>
-
-
-        </div>
-        <!-- Substitute Section -->
-        <div class="substitute-section">
-            <h2>Substitute Assignments</h2>
-            <div class="row" id="substituteAssignmentsContainer">
-                <!-- Substitute assignments will be dynamically populated here -->
-                <div class="no-data">
-                    <p>No substitute classes assigned.</p>
-                </div>
-            </div>
-            <h2>Substitute Classes</h2>
-            <div class="row" id="substituteClassesContainer">
-                <!-- Substitute classes will be dynamically populated here -->
-                <div class="no-data">
-                    <p>No substitute classes assigned.</p>
-                </div>
+<!-- Substitute Section -->
+<div class="row g-4 mb-5">
+    <div class="col-md-12">
+        <div class="content-card">
+            <h4 class="mb-3 border-bottom pb-2">Assign Substitute Faculty</h4>
+            <div id="assignSubstituteContainer">
+                <div class="text-center text-muted">Loading substitute form...</div>
             </div>
         </div>
     </div>
 </div>
 
-<!-- Bootstrap JS (Optional for animations) -->
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
-<!-- JavaScript to Fetch and Display Classes and Substitute Assignments -->
+<!-- Substitute Assignments -->
+<div class="row g-4">
+    <div class="col-md-6">
+        <div class="content-card h-100">
+            <h5 class="mb-3 text-primary"><i class="fas fa-calendar-alt me-2"></i>My Requests (Assignments)</h5>
+            <div id="substituteAssignmentsContainer">
+                <div class="text-center text-muted">Loading...</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="content-card h-100">
+            <h5 class="mb-3 text-success"><i class="fas fa-chalkboard-teacher me-2"></i>Classes Assigned to Me</h5>
+            <div id="substituteClassesContainer">
+                <div class="text-center text-muted">Loading...</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .sub-card {
+        background: #f8f9fa;
+        border-radius: 10px;
+        padding: 15px;
+        margin-bottom: 10px;
+        border-left: 4px solid #2575fc;
+    }
+
+    .no-data {
+        font-style: italic;
+        color: #999;
+        text-align: center;
+        padding: 10px;
+    }
+</style>
+{% endblock %}
+
+{% block scripts %}
 <script>
     document.addEventListener('DOMContentLoaded', function () {
-        const facultyId = "{{ user_id }}"; // Logged-in faculty ID
+        const facultyId = "{{ session.get('id') }}";
 
         // Fetch the faculty's assigned classes
         fetch('/fetch-faculty-classes')
             .then(response => response.json())
             .then(data => {
-                if (data.success) {
-                    const classesContainer = document.getElementById('classesContainer');
-                    classesContainer.innerHTML = ''; // Clear existing content
+                const classesContainer = document.getElementById('classesContainer');
+                classesContainer.innerHTML = ''; // Clear existing content
 
+                if (data.success && data.classes.length > 0) {
                     data.classes.forEach(cls => {
                         const card = `
                             <div class="col-md-4">
-                                <div class="card">
-                                    <h5>${cls.subject_name} - ${cls.section_name}</h5>
-                                    <a href="/faculty-attendance?subject_id=${cls.subject_id}&section_name=${cls.section_name}" class="btn btn-primary">View Attendance</a>
-                                    <a href="/mark-attendance?faculty_id=${facultyId}&subject_id=${cls.subject_id}&section_name=${cls.section_name}" class="btn btn-success">Mark Attendance</a>
+                                <div class="content-card h-100 hover-scale">
+                                    <h5 class="text-primary">${cls.subject_name}</h5>
+                                    <p class="text-muted mb-4">${cls.section_name}</p>
+                                    <div class="d-grid gap-2">
+                                        <a href="/faculty-attendance?subject_id=${cls.subject_id}&section_name=${cls.section_name}" class="btn btn-outline-primary btn-sm">View Attendance</a>
+                                        <a href="/mark-attendance?faculty_id=${facultyId}&subject_id=${cls.subject_id}&section_name=${cls.section_name}" class="btn btn-gradient btn-sm">Mark Attendance</a>
+                                    </div>
                                 </div>
                             </div>
                         `;
                         classesContainer.insertAdjacentHTML('beforeend', card);
                     });
+                } else if (data.success) {
+                    classesContainer.innerHTML = '<div class="col-12 text-center text-white">No classes assigned.</div>';
                 } else {
-                    alert('Error fetching classes: ' + data.message);
+                    classesContainer.innerHTML = `<div class="col-12 text-center text-danger">Error: ${data.message}</div>`;
                 }
             });
 
@@ -244,7 +107,7 @@
                 if (data.success) {
                     const facultySelect = document.createElement('select');
                     facultySelect.id = 'substituteFacultySelect';
-                    facultySelect.className = 'form-control';
+                    facultySelect.className = 'form-select';
                     facultySelect.innerHTML = '<option value="">Select Substitute Faculty</option>';
                     data.faculty.forEach(faculty => {
                         if (faculty.faculty_id !== facultyId) { // Exclude the logged-in faculty
@@ -255,28 +118,25 @@
                     // Populate the substitute assignment form
                     const assignSubstituteContainer = document.getElementById('assignSubstituteContainer');
                     assignSubstituteContainer.innerHTML = `
-                        <div class="col-md-12">
-                            <div class="card">
-                                <h5>Assign Substitute</h5>
-                                <form id="assignSubstituteForm">
-                                    <div class="form-group">
-                                        <label for="classSelect">Select Class</label>
-                                        <select class="form-control" id="classSelect" required>
-                                            <!-- Classes will be populated dynamically -->
-                                        </select>
-                                    </div>
-                                    <div class="form-group">
-                                        <label for="substituteFacultySelect">Select Substitute Faculty</label>
-                                        ${facultySelect.outerHTML}
-                                    </div>
-                                    <div class="form-group">
-                                        <label for="dateInput">Date</label>
-                                        <input type="date" class="form-control" id="dateInput" required>
-                                    </div>
-                                    <button type="submit" class="btn btn-primary">Assign Substitute</button>
-                                </form>
+                        <form id="assignSubstituteForm" class="row g-3">
+                            <div class="col-md-4">
+                                <label class="form-label">Select Class</label>
+                                <select class="form-select" id="classSelect" required>
+                                    <option value="" disabled selected>Loading classes...</option>
+                                </select>
                             </div>
-                        </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Select Substitute</label>
+                                ${facultySelect.outerHTML}
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label">Date</label>
+                                <input type="date" class="form-control" id="dateInput" required>
+                            </div>
+                            <div class="col-md-2 d-flex align-items-end">
+                                <button type="submit" class="btn btn-primary w-100">Assign</button>
+                            </div>
+                        </form>
                     `;
 
                     // Populate the class dropdown
@@ -285,6 +145,7 @@
                         .then(data => {
                             if (data.success) {
                                 const classSelect = document.getElementById('classSelect');
+                                classSelect.innerHTML = '<option value="" disabled selected>Select Class</option>';
                                 data.classes.forEach(cls => {
                                     classSelect.innerHTML += `<option value="${cls.subject_id}-${cls.section_name}">${cls.subject_name} - ${cls.section_name}</option>`;
                                 });
@@ -296,15 +157,15 @@
                         e.preventDefault();
 
                         const classValue = document.getElementById('classSelect').value;
+                        if (!classValue) { alert("Please select a class"); return; }
+
                         const [subjectId, sectionName] = classValue.split('-');
                         const substituteFacultyId = document.getElementById('substituteFacultySelect').value;
                         const date = document.getElementById('dateInput').value;
 
                         fetch('/assign-substitute', {
                             method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                            },
+                            headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({
                                 substitute_faculty_id: substituteFacultyId,
                                 subject_id: subjectId,
@@ -316,7 +177,7 @@
                             .then(data => {
                                 if (data.success) {
                                     alert('Substitute assigned successfully!');
-                                    location.reload(); // Refresh the page to update the list
+                                    location.reload();
                                 } else {
                                     alert('Error: ' + data.message);
                                 }
@@ -325,7 +186,7 @@
                 }
             });
 
-        // Fetch substitute assignments
+        // Fetch substitute assignments (My Requests)
         fetch('/fetch-substitute-assignments')
             .then(response => response.json())
             .then(data => {
@@ -334,54 +195,22 @@
 
                 if (data.success && data.substitute_assignments.length > 0) {
                     data.substitute_assignments.forEach(assignment => {
-                        const card = `
-                            <div class="col-md-4">
-                                <div class="card">
-                                    <h5>${assignment.subject_name} - ${assignment.section_name}</h5>
-                                    <p>Assigned to: ${assignment.substitute_faculty_name}</p>
-                                    <p>Date: ${assignment.date}</p>
-                                </div>
+                        const item = `
+                            <div class="sub-card">
+                                <strong>${assignment.subject_name} (${assignment.section_name})</strong>
+                                <div class="small">Assigned to: ${assignment.substitute_faculty_name}</div>
+                                <div class="small text-muted">Date: ${assignment.date}</div>
                             </div>
                         `;
-                        container.insertAdjacentHTML('beforeend', card);
+                        container.insertAdjacentHTML('beforeend', item);
                     });
                 } else {
-                    container.innerHTML = `<div class="no-data"><p>No substitute assignments yet.</p></div>`;
-                }
-            });
-    });
-
-
-    document.addEventListener('DOMContentLoaded', function () {
-        const facultyId = "{{ user_id }}"; // Logged-in faculty ID
-
-        // Fetch the faculty's assigned classes
-        fetch('/fetch-faculty-classes')
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    const classesContainer = document.getElementById('classesContainer');
-                    classesContainer.innerHTML = ''; // Clear existing content
-
-                    data.classes.forEach(cls => {
-                        const card = `
-                            <div class="col-md-4">
-                                <div class="card">
-                                    <h5>${cls.subject_name} - ${cls.section_name}</h5>
-                                    <a href="/faculty-attendance?subject_id=${cls.subject_id}&section_name=${cls.section_name}" class="btn btn-primary">View Attendance</a>
-                                    <a href="/mark-attendance?faculty_id=${facultyId}&subject_id=${cls.subject_id}&section_name=${cls.section_name}" class="btn btn-success">Mark Attendance</a>
-                                </div>
-                            </div>
-                        `;
-                        classesContainer.insertAdjacentHTML('beforeend', card);
-                    });
-                } else {
-                    alert('Error fetching classes: ' + data.message);
+                    container.innerHTML = `<div class="no-data">No active requests.</div>`;
                 }
             });
 
-        // Fetch substitute classes for the logged-in substitute faculty
-         fetch('/fetch-substitute-classes-for-substitute')
+        // Fetch substitute classes (Assigned to Me)
+        fetch('/fetch-substitute-classes-for-substitute')
             .then(response => response.json())
             .then(data => {
                 const container = document.getElementById('substituteClassesContainer');
@@ -389,22 +218,29 @@
 
                 if (data.success && data.substitute_classes.length > 0) {
                     data.substitute_classes.forEach(cls => {
-                        const card = `
-                            <div class="col-md-4">
-                                <div class="card">
-                                    <h5>${cls.subject_name} - ${cls.section_name}</h5>
-                                    <p>Assigned by: ${cls.original_faculty_name}</p>
-                                    <p>Date: ${cls.date}</p>
-                                    <a href="/mark-attendance?faculty_id=${facultyId}&subject_id=${cls.subject_id}&section_name=${cls.section_name}" class="btn btn-success">Mark Attendance</a>
-                                </div>
+                        const item = `
+                            <div class="sub-card border-start border-success border-4">
+                                <strong>${cls.subject_name} (${cls.section_name})</strong>
+                                <div class="small">From: ${cls.original_faculty_name}</div>
+                                <div class="small text-muted mb-2">Date: ${cls.date}</div>
+                                <a href="/mark-attendance?faculty_id=${facultyId}&subject_id=${cls.subject_id}&section_name=${cls.section_name}" class="btn btn-sm btn-success w-100">Mark Attendance</a>
                             </div>
                         `;
-                        container.insertAdjacentHTML('beforeend', card);
+                        container.insertAdjacentHTML('beforeend', item);
                     });
                 } else {
-                    container.innerHTML = `<div class="no-data"><p>No substitute classes assigned.</p></div>`;
+                    container.innerHTML = `<div class="no-data">No substitute classes assigned to you.</div>`;
                 }
             });
     });
 </script>
-</body>
+<style>
+    .hover-scale {
+        transition: transform 0.2s;
+    }
+
+    .hover-scale:hover {
+        transform: translateY(-5px);
+    }
+</style>
+{% endblock %}

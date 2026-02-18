@@ -1,336 +1,283 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Manage Students - Anurag University</title>
-    <!-- Bootstrap CSS -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
-    <!-- Font Awesome for Icons -->
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
-    <!-- Custom CSS -->
-    <style>
-        /* Add your custom styles here */
+{% extends "base.html" %}
 
-        body {
-            background: linear-gradient(135deg, #6a11cb, #2575fc);
-            font-family: Arial, sans-serif;
-            color: #333;
-            min-height: 100vh;
-        }
+{% block title %}Manage Students - AttendEase{% endblock %}
 
-        .dashboard-wrapper {
-            display: flex;
-            min-height: 100vh;
-            animation: fadeIn 1s ease-in-out;
-        }
+{% block header %}Manage Students{% endblock %}
 
-        @keyframes fadeIn {
-            from {
-                opacity: 0;
-                transform: translateY(-20px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        /* Sidebar */
-        .sidebar {
-            width: 250px;
-            background: rgba(255, 255, 255, 0.9);
-            padding: 1.5rem;
-            box-shadow: 4px 0 15px rgba(0, 0, 0, 0.1);
-        }
-
-        .sidebar h3 {
-            color: #333;
-            font-weight: bold;
-            margin-bottom: 2rem;
-        }
-
-        .sidebar ul {
-            list-style: none;
-            padding: 0;
-        }
-
-        .sidebar ul li {
-            margin-bottom: 1rem;
-        }
-
-        .sidebar ul li a {
-            text-decoration: none;
-            color: #333;
-            font-size: 1rem;
-            transition: color 0.3s ease;
-        }
-
-        .sidebar ul li a:hover {
-            color: #2575fc;
-        }
-
-        /* Main Content */
-        .main-content {
-            flex: 1;
-            padding: 2rem;
-            background: rgba(255, 255, 255, 0.9);
-            margin: 1rem;
-            border-radius: 10px;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-        }
-
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 2rem;
-        }
-
-        .header h1 {
-            color: #333;
-            font-weight: bold;
-        }
-
-        .user-info {
-            display: flex;
-            align-items: center;
-        }
-
-        .user-info img {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            margin-right: 0.5rem;
-        }
-
-        .user-info span {
-            color: #333;
-            font-weight: bold;
-        }
-
-        /* Cards */
-        .card {
-            background: #fff;
-            border: none;
-            border-radius: 10px;
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
-            padding: 1.5rem;
-            margin-bottom: 1.5rem;
-            transition: transform 0.3s ease;
-        }
-
-        .card:hover {
-            transform: translateY(-5px);
-        }
-
-        .card h5 {
-            color: #333;
-            font-weight: bold;
-            margin-bottom: 1rem;
-        }
-
-        .card p {
-            color: #666;
-        }
-
-        .card .btn {
-            margin-right: 0.5rem;
-        }
-
-        /* Table */
-        .table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 1rem;
-        }
-
-        .table th, .table td {
-            padding: 0.75rem;
-            border-bottom: 1px solid #ddd;
-            text-align: left;
-        }
-
-        .table th {
-            background-color: #f8f9fa;
-            font-weight: bold;
-        }
-
-        .table tr:hover {
-            background-color: #f1f1f1;
-        }
-    </style>
-</head>
-<body>
-<div class="dashboard-wrapper">
-    <!-- Sidebar -->
-    <div class="sidebar">
-        <h3>Admin Dashboard</h3>
-        <ul>
-            <li><a href="/dashboard"><i class="fas fa-dashboard"></i> Dashboard</a></li>
-            <li><a href="/manage-students"><i class="fas fa-graduation-cap "></i> Manage Students</a></li>
-            <li><a href="/manage-faculty"><i class="fas fa-user"></i> Manage Faculty</a></li>
-            <li><a href="/manage-subjects"><i class="fas fa-book"></i> Manage Courses</a></li>
-            <li><a href="/manage-sections"><i class="fas fa-chalkboard"></i> Manage Sections</a></li>
-            <li><a href="/admin-analytics"><i class="fas fa-bar-chart "></i> Analytics</a></li>
-            <li><a href="/logout"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
-        </ul>
+{% block content %}
+<div class="content-card">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div class="input-group search-box" style="width: 300px;">
+            <span class="input-group-text"><i class="fas fa-search text-muted"></i></span>
+            <input type="text" id="searchStudent" class="form-control" placeholder="Search students...">
+        </div>
+        <button class="btn btn-gradient" data-bs-toggle="modal" data-bs-target="#addStudentModal">
+            <i class="fas fa-plus me-2"></i>Add Student
+        </button>
     </div>
 
-    <!-- Main Content -->
-    <div class="main-content">
-        <!-- Header -->
-        <div class="header">
-            <h1>Manage Students</h1>
-            <div class="user-info">
-                <img src="profile_user.svg" alt="User">
-                <span>{{ user_name }}</span>
+    <div class="table-responsive">
+        <table class="table table-hover">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Roll Number</th>
+                    <th>Section</th>
+                    <th>Email</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody id="studentTableBody">
+                <!-- Student rows will be inserted here -->
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Add Student Modal -->
+<div class="modal fade" id="addStudentModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add New Student</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-        </div>
-
-        <!-- Add Student Form -->
-        <div class="card">
-            <h5>Add New Student</h5>
-            <form id="addStudentForm">
-                <div class="mb-3">
-                    <label for="fullName" class="form-label">Full Name</label>
-                    <input type="text" class="form-control" id="fullName" required>
-                </div>
-                <div class="mb-3">
-                    <label for="rollNumber" class="form-label">Roll Number</label>
-                    <input type="text" class="form-control" id="rollNumber" required>
-                </div>
-                <div class="mb-3">
-                    <label for="email" class="form-label">Email</label>
-                    <input type="email" class="form-control" id="email" required>
-                </div>
-                <div class="mb-3">
-                    <label for="password" class="form-label">Password</label>
-                    <input type="password" class="form-control" id="password" required>
-                </div>
-                <div class="mb-3">
-                    <label for="sectionName" class="form-label">Section</label>
-                    <select class="form-select" id="sectionName" required>
-                        <option value="" disabled selected>Select Section</option>
-                    </select>
-                </div>
-                <!-- Webcam Container -->
-                <div class="webcam-container" id="webcamContainer">
-                    <h6>Capture Photo for Facial Recognition</h6>
-                    <video id="video" width="640" height="480" autoplay></video>
-                    <br>
-                    <button type="button" id="snap" class="btn btn-primary mt-3">Capture Photo</button>
-                </div>
-                <!-- Captured Photo Container -->
-                <div class="captured-photo-container" id="capturedPhotoContainer" style="display: none;">
-                    <h6>Captured Photo</h6>
-                    <img id="capturedImage" class="img-fluid"/>
-                    <br>
-                    <button type="button" id="retakePhoto" class="btn btn-secondary mt-3">Retake Photo</button>
-                </div>
-                <!-- Submit Button -->
-                <button type="submit" class="btn btn-primary">Add Student</button>
-            </form>
-        </div>
-
-        <!-- Student List -->
-        <!-- Student List -->
-        <div class="card">
-            <h5>Student List</h5>
-            <input type="text" id="searchStudent" class="form-control mb-3" placeholder="Search students...">
-            <div class="user-list" id="studentList">
-                <!-- Student records will be dynamically inserted here -->
+            <div class="modal-body">
+                <form id="addStudentForm">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Full Name</label>
+                                <input type="text" class="form-control" id="fullName" required>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Roll Number</label>
+                                <input type="text" class="form-control" id="rollNumber" required>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Email</label>
+                                <input type="email" class="form-control" id="email" required>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Password</label>
+                                <input type="password" class="form-control" id="password" required>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Section</label>
+                                <select class="form-select" id="sectionName" required>
+                                    <option value="" disabled selected>Select Section</option>
+                                    <!-- Options populated by JS -->
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Face Data</label>
+                            <div class="webcam-container" id="webcamContainer">
+                                <video id="video" autoplay playsinline></video>
+                                <button type="button" id="snap"
+                                    class="btn btn-primary d-block mx-auto mt-2 w-75">Capture Photo</button>
+                            </div>
+                            <div class="captured-photo-container" id="capturedPhotoContainer" style="display: none;">
+                                <img id="capturedImage" class="img-fluid mb-2" />
+                                <button type="button" id="retakePhoto" class="btn btn-secondary w-75">Retake
+                                    Photo</button>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" onclick="submitAddStudent()">Save Student</button>
             </div>
         </div>
     </div>
 </div>
 
-<!-- Bootstrap JS -->
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
-<!-- Webcam Script -->
+<!-- Edit Student Modal -->
+<div class="modal fade" id="editStudentModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Edit Student</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editStudentForm">
+                    <input type="hidden" id="editOriginalRollNumber">
+                    <div class="mb-3">
+                        <label class="form-label">Full Name</label>
+                        <input type="text" class="form-control" id="editFullName" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Roll Number</label>
+                        <input type="text" class="form-control" id="editRollNumber" disabled>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Email</label>
+                        <input type="email" class="form-control" id="editEmail" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Section</label>
+                        <select class="form-select" id="editSectionName" required>
+                            <!-- Options populated by JS -->
+                        </select>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" onclick="submitEditStudent()">Update Student</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
 <script>
-    // Access the webcam
-    const video = document.getElementById('video');
-    let stream;
-
-    navigator.mediaDevices.getUserMedia({video: true})
-        .then((streamObj) => {
-            stream = streamObj;
-            video.srcObject = stream;
-        })
-        .catch((err) => {
-            console.error("Error accessing webcam:", err);
-            alert("Unable to access webcam. Please ensure your camera is connected and permissions are granted.");
-        });
-
-    // Capture the photo
-    const snapButton = document.getElementById('snap');
-    const capturedImage = document.getElementById('capturedImage');
-    const webcamContainer = document.getElementById('webcamContainer');
-    const capturedPhotoContainer = document.getElementById('capturedPhotoContainer');
-    const retakePhotoButton = document.getElementById('retakePhoto');
     let photoBase64 = null;
+    let stream = null;
+    const video = document.getElementById('video');
 
-    snapButton.addEventListener('click', () => {
+    // --- Initial Fetching ---
+    document.addEventListener('DOMContentLoaded', () => {
+        fetchStudents();
+        fetchSections();
+    });
+
+    function fetchSections() {
+        fetch('/fetch-sections')
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    const addSelect = document.getElementById('sectionName');
+                    const editSelect = document.getElementById('editSectionName');
+
+                    // Clear and add default
+                    addSelect.innerHTML = '<option value="" disabled selected>Select Section</option>';
+                    editSelect.innerHTML = '<option value="" disabled selected>Select Section</option>';
+
+                    data.sections.forEach(sec => {
+                        const opt1 = document.createElement('option');
+                        opt1.value = sec.section_name;
+                        opt1.textContent = sec.section_name;
+                        addSelect.appendChild(opt1);
+
+                        const opt2 = document.createElement('option');
+                        opt2.value = sec.section_name;
+                        opt2.textContent = sec.section_name;
+                        editSelect.appendChild(opt2);
+                    });
+                }
+            });
+    }
+
+    function fetchStudents() {
+        const tbody = document.getElementById('studentTableBody');
+        tbody.innerHTML = '<tr><td colspan="5" class="text-center">Loading...</td></tr>';
+
+        fetch('/fetch-students')
+            .then(res => res.json())
+            .then(data => {
+                tbody.innerHTML = '';
+                if (data.success && data.students.length > 0) {
+                    data.students.forEach(student => {
+                        const row = `
+                            <tr>
+                                <td>${student.name}</td>
+                                <td>${student.roll_number}</td>
+                                <td>${student.section_name || '-'}</td>
+                                <td>${student.email}</td>
+                                <td>
+                                    <button class="btn btn-primary action-btn" onclick="openEditModal('${student.roll_number}', '${student.name.replace(/'/g, "\\'")}', '${student.email}', '${student.section_name}')">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                    <button class="btn btn-danger action-btn" onclick="deleteStudent('${student.roll_number}')">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                        `;
+                        tbody.innerHTML += row;
+                    });
+                } else {
+                    tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">No students found</td></tr>';
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                tbody.innerHTML = '<tr><td colspan="5" class="text-center text-danger">Error fetching students</td></tr>';
+            });
+    }
+
+    // --- Search ---
+    document.getElementById('searchStudent').addEventListener('input', function () {
+        const value = this.value.toLowerCase();
+        const rows = document.querySelectorAll('#studentTableBody tr');
+        rows.forEach(row => {
+            const text = row.innerText.toLowerCase();
+            row.style.display = text.includes(value) ? '' : 'none';
+        });
+    });
+
+    // --- Webcam Logic for Add Modal ---
+    const addModal = document.getElementById('addStudentModal');
+    addModal.addEventListener('shown.bs.modal', startWebcam);
+    addModal.addEventListener('hidden.bs.modal', stopWebcam);
+
+    function startWebcam() {
+        navigator.mediaDevices.getUserMedia({ video: true })
+            .then(s => {
+                stream = s;
+                video.srcObject = stream;
+            })
+            .catch(err => {
+                console.error("Webcam error:", err);
+                alert("Could not access webcam.");
+            });
+
+        // Reset inputs
+        photoBase64 = null;
+        document.getElementById('webcamContainer').style.display = 'block';
+        document.getElementById('capturedPhotoContainer').style.display = 'none';
+        document.getElementById('addStudentForm').reset();
+    }
+
+    function stopWebcam() {
+        if (stream) {
+            stream.getTracks().forEach(track => track.stop());
+            stream = null;
+        }
+    }
+
+    document.getElementById('snap').addEventListener('click', () => {
         const canvas = document.createElement('canvas');
         canvas.width = video.videoWidth;
         canvas.height = video.videoHeight;
-        const context = canvas.getContext('2d');
-        context.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-        // Convert canvas to image and display
+        canvas.getContext('2d').drawImage(video, 0, 0);
         photoBase64 = canvas.toDataURL('image/jpeg');
-        capturedImage.src = photoBase64;
 
-        // Show the captured photo container and hide the webcam container
-        webcamContainer.style.display = 'none';
-        capturedPhotoContainer.style.display = 'block';
+        document.getElementById('capturedImage').src = photoBase64;
+        document.getElementById('webcamContainer').style.display = 'none';
+        document.getElementById('capturedPhotoContainer').style.display = 'block';
     });
 
-    // Retake the photo
-    retakePhotoButton.addEventListener('click', () => {
-        // Show the webcam container and hide the captured photo container
-        webcamContainer.style.display = 'block';
-        capturedPhotoContainer.style.display = 'none';
-
-        // Restart the webcam
-        navigator.mediaDevices.getUserMedia({video: true})
-            .then((streamObj) => {
-                stream = streamObj;
-                video.srcObject = stream;
-            })
-            .catch((err) => {
-                console.error("Error accessing webcam:", err);
-            });
+    document.getElementById('retakePhoto').addEventListener('click', () => {
+        photoBase64 = null;
+        document.getElementById('webcamContainer').style.display = 'block';
+        document.getElementById('capturedPhotoContainer').style.display = 'none';
     });
 
-    // Fetch sections from the backend
-    fetch('/fetch-sections')
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                const sectionSelect = document.getElementById('sectionName');
-                data.sections.forEach(section => {
-                    const option = document.createElement('option');
-                    option.value = section.section_name;
-                    option.textContent = section.section_name;
-                    sectionSelect.appendChild(option);
-                });
-            } else {
-                alert('Failed to fetch sections!');
-            }
-        });
 
-    // Handle form submission
-    document.getElementById('addStudentForm').addEventListener('submit', (e) => {
-        e.preventDefault();
-
+    // --- Add Student ---
+    function submitAddStudent() {
         if (!photoBase64) {
-            alert('Please capture a photo!');
+            alert("Please capture a photo first!");
             return;
         }
 
-        const formData = {
+        const data = {
             fullName: document.getElementById('fullName').value,
             rollNumber: document.getElementById('rollNumber').value,
             email: document.getElementById('email').value,
@@ -339,89 +286,79 @@
             photo: photoBase64
         };
 
+        if (!data.fullName || !data.rollNumber || !data.email || !data.password || !data.sectionName) {
+            alert("Please fill all fields.");
+            return;
+        }
+
         fetch('/add-student', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(formData)
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
         })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    alert('Student added successfully!');
-                    window.location.reload();
+            .then(res => res.json())
+            .then(res => {
+                if (res.success) {
+                    alert("Student added!");
+                    bootstrap.Modal.getInstance(addModal).hide();
+                    fetchStudents();
                 } else {
-                    alert(data.message);
+                    alert(res.message);
                 }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                alert('Failed to add student!');
             });
-    });
-
-    // Fetch and display students
-    function fetchStudents() {
-        fetch('/fetch-students')
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    const studentList = document.querySelector('.user-list');
-                    studentList.innerHTML = ''; // Clear existing content
-
-                    data.students.forEach(student => {
-                        const studentItem = document.createElement('div');
-                        studentItem.classList.add('user-item');
-                        studentItem.innerHTML = `
-                            <div>
-                                <strong>${student.name}</strong><br>
-                                <small>${student.roll_number} | ${student.email}</small>
-                            </div>
-                            <button class="btn btn-danger btn-sm" onclick="deleteStudent('${student.roll_number}')">Delete</button>
-                        `;
-                        studentList.appendChild(studentItem);
-                    });
-                } else {
-                    alert('Failed to fetch students!');
-                }
-            })
-            .catch(error => console.error('Error fetching students:', error));
     }
 
-    // Delete a student
-    function deleteStudent(rollNumber) {
-        if (confirm('Are you sure you want to delete this student?')) {
-            fetch(`/delete-student/${rollNumber}`, {method: 'DELETE'})
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        alert('Student deleted successfully!');
-                        fetchStudents(); // Refresh the student list
+    // --- Edit Student ---
+    const editModal = new bootstrap.Modal(document.getElementById('editStudentModal'));
+
+    function openEditModal(roll, name, email, section) {
+        document.getElementById('editOriginalRollNumber').value = roll;
+        document.getElementById('editRollNumber').value = roll;
+        document.getElementById('editFullName').value = name;
+        document.getElementById('editEmail').value = email;
+        document.getElementById('editSectionName').value = section;
+        editModal.show();
+    }
+
+    function submitEditStudent() {
+        const data = {
+            originalRollNumber: document.getElementById('editOriginalRollNumber').value,
+            fullName: document.getElementById('editFullName').value,
+            email: document.getElementById('editEmail').value,
+            sectionName: document.getElementById('editSectionName').value
+        };
+
+        fetch('/update-student', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        })
+            .then(res => res.json())
+            .then(res => {
+                if (res.success) {
+                    alert("Student updated!");
+                    editModal.hide();
+                    fetchStudents();
+                } else {
+                    alert(res.message);
+                }
+            });
+    }
+
+    // --- Delete Student ---
+    function deleteStudent(roll) {
+        if (confirm(`Delete student ${roll}?`)) {
+            fetch(`/delete-student/${roll}`, { method: 'DELETE' })
+                .then(res => res.json())
+                .then(res => {
+                    if (res.success) {
+                        fetchStudents();
                     } else {
-                        alert('Failed to delete student!');
+                        alert(res.message);
                     }
-                })
-                .catch(error => console.error('Error deleting student:', error));
+                });
         }
     }
 
-    // Search students
-    document.getElementById('searchStudent').addEventListener('input', function () {
-        const searchValue = this.value.toLowerCase();
-        document.querySelectorAll('.user-item').forEach(item => {
-            const name = item.querySelector('strong').textContent.toLowerCase();
-            const details = item.querySelector('small').textContent.toLowerCase();
-            if (name.includes(searchValue) || details.includes(searchValue)) {
-                item.style.display = 'block';
-            } else {
-                item.style.display = 'none';
-            }
-        });
-    });
-
-    // Fetch students on page load
-    fetchStudents();
 </script>
-</body>
-</html>
+{% endblock %}

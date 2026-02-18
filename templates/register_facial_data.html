@@ -1,90 +1,50 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Register Facial Data - Anurag University</title>
-    <!-- Bootstrap CSS -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
-    <!-- Font Awesome for Icons -->
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
-    <!-- Custom CSS -->
-    <style>
-        body {
-            background: linear-gradient(135deg, #6a11cb, #2575fc);
-            font-family: Arial, sans-serif;
-            color: #333;
-            min-height: 100vh;
-        }
+{% extends "base.html" %}
 
-        .register-container {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-        }
+{% block title %}Register Facial Data - AttendEase{% endblock %}
 
-        .register-box {
-            background: rgba(255, 255, 255, 0.9);
-            padding: 2rem;
-            border-radius: 10px;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-            width: 100%;
-            max-width: 400px;
-        }
+{% block header %}Register Facial Data{% endblock %}
 
-        .register-box h1 {
-            color: #333;
-            font-weight: bold;
-            margin-bottom: 1.5rem;
-        }
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8 col-lg-6">
+        <div class="content-card text-center">
+            <h5 class="mb-4 text-primary">Instructions</h5>
+            <p class="text-muted mb-4">
+                Please look directly into the camera. Ensure your face is well-lit and clearly visible.
+                Click "Register" to capture your facial data.
+            </p>
 
-        .register-box p {
-            color: #666;
-            margin-bottom: 1.5rem;
-        }
+            <div class="position-relative d-inline-block rounded overflow-hidden shadow-sm mb-4"
+                style="max-width: 100%;">
+                <video id="video" autoplay playsinline
+                    style="width: 100%; max-width: 480px; border-radius: 10px;"></video>
+                <canvas id="canvas" style="display:none;"></canvas>
+            </div>
 
-        .register-box video {
-            width: 100%;
-            border-radius: 5px;
-        }
+            <div class="d-grid">
+                <button type="button" id="registerFaceButton" class="btn btn-gradient btn-lg">
+                    <i class="fas fa-camera me-2"></i>Register Face
+                </button>
+            </div>
 
-        .register-box button {
-            margin-top: 1rem;
-            width: 100%;
-            padding: 0.5rem;
-            background-color: #2575fc;
-            border: none;
-            border-radius: 5px;
-            color: white;
-            font-weight: bold;
-            cursor: pointer;
-        }
-
-        .register-box button:hover {
-            background-color: #1a5bbf;
-        }
-    </style>
-</head>
-<body>
-<div class="register-container">
-    <div class="register-box">
-        <h1>Register Facial Data</h1>
-        <p>Please look into the camera to register your facial data.</p>
-        <video id="video" width="100%" autoplay></video>
-        <canvas id="canvas" style="display:none;"></canvas>
-        <button type="button" id="registerFaceButton">Register</button>
+            <div id="loadingSpinner" class="mt-3" style="display: none;">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <p class="mt-2 text-muted">Processing...</p>
+            </div>
+        </div>
     </div>
 </div>
+{% endblock %}
 
-<!-- Bootstrap JS -->
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
-<!-- JavaScript for Facial Data Registration -->
+{% block scripts %}
 <script>
     document.addEventListener('DOMContentLoaded', function () {
         const video = document.getElementById('video');
         const canvas = document.getElementById('canvas');
         const registerFaceButton = document.getElementById('registerFaceButton');
+        const loadingSpinner = document.getElementById('loadingSpinner');
 
         // Start webcam
         navigator.mediaDevices.getUserMedia({ video: true })
@@ -93,12 +53,20 @@
             })
             .catch((err) => {
                 console.error("Error accessing webcam:", err);
+                alert("Could not access webcam. Please allow camera permissions.");
             });
 
         // Handle facial data registration
         registerFaceButton.addEventListener('click', () => {
+            // UI Feedback
+            registerFaceButton.disabled = true;
+            loadingSpinner.style.display = 'block';
+
             const context = canvas.getContext('2d');
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
             context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
             const imageData = canvas.toDataURL('image/jpeg');
 
             fetch('/register-facial-data', {
@@ -112,15 +80,22 @@
             })
                 .then(response => response.json())
                 .then(data => {
+                    loadingSpinner.style.display = 'none';
                     if (data.success) {
                         alert('Facial data registered successfully!');
-                        window.location.href = '/dashboard'; // Redirect to dashboard after registration
+                        window.location.href = '/dashboard';
                     } else {
-                        alert('Error registering facial data. Please try again.');
+                        alert('Error: ' + data.message);
+                        registerFaceButton.disabled = false;
                     }
+                })
+                .catch(err => {
+                    console.error(err);
+                    loadingSpinner.style.display = 'none';
+                    alert("An error occurred.");
+                    registerFaceButton.disabled = false;
                 });
         });
     });
 </script>
-</body>
-</html>
+{% endblock %}

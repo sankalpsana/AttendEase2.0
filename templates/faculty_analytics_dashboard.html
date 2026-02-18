@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+
+{% block title %}Faculty Analytics - AttendEase{% endblock %}
+
+{% block header %}Faculty Analytics{% endblock %}
+
+{% block content %}
+<div class="mb-5">
+    <h4 class="mb-3 text-white"><i class="fas fa-chart-line me-2"></i>Select Class for Analytics</h4>
+    <div class="row g-4" id="classesContainer">
+        <!-- Classes will be dynamically populated here -->
+        <div class="col-12 text-center text-white">Loading classes...</div>
+    </div>
+</div>
+
+<style>
+    .hover-scale {
+        transition: transform 0.2s;
+    }
+
+    .hover-scale:hover {
+        transform: translateY(-5px);
+    }
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        // Fetch the faculty's assigned classes
+        fetch('/fetch-faculty-classes')
+            .then(response => response.json())
+            .then(data => {
+                const classesContainer = document.getElementById('classesContainer');
+                classesContainer.innerHTML = ''; // Clear existing content
+
+                if (data.success && data.classes.length > 0) {
+                    data.classes.forEach(cls => {
+                        const card = `
+                            <div class="col-md-4">
+                                <div class="content-card h-100 hover-scale">
+                                    <h5 class="text-primary">${cls.subject_name}</h5>
+                                    <p class="text-muted mb-4">${cls.section_name}</p>
+                                    <div class="d-grid gap-2">
+                                        <a href="/faculty-attendance?subject_id=${cls.subject_id}&section_name=${cls.section_name}" class="btn btn-outline-primary btn-sm">
+                                            <i class="fas fa-chart-pie me-2"></i>View Analytics
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                        classesContainer.insertAdjacentHTML('beforeend', card);
+                    });
+                } else if (data.success) {
+                    classesContainer.innerHTML = '<div class="col-12 text-center text-white">No classes assigned.</div>';
+                } else {
+                    classesContainer.innerHTML = `<div class="col-12 text-center text-danger">Error: ${data.message}</div>`;
+                }
+            });
+    });
+</script>
+{% endblock %}

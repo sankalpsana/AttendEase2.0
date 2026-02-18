@@ -1,4 +1,5 @@
 import re
+import pickle
 from io import BytesIO
 from PIL import Image
 from flask import Flask, render_template, redirect, url_for, flash, session, request, jsonify
@@ -6,40 +7,43 @@ from flask_login import LoginManager, UserMixin, login_user, login_required, log
 from flask_wtf import FlaskForm
 from wtforms import StringField, PasswordField, SubmitField, SelectField
 from wtforms.validators import DataRequired
-import mysql.connector
-from mysql.connector import pooling
+# import mysql.connector
+# from mysql.connector import pooling
+import db  # Use our new DB abstraction
 import base64
 import face_recognition
 import numpy as np
 import os
+import subprocess
 import cv2
-from pyngrok import ngrok
-import pyqrcode
-import png
-from pyqrcode import QRCode
+from dotenv import load_dotenv
+from werkzeug.security import generate_password_hash, check_password_hash
+from flask_socketio import SocketIO, emit
+
+load_dotenv()
+# from pyngrok import ngrok
+# import pyqrcode
+# import png
+# from pyqrcode import QRCode
 
 face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'your-secret-key-here'
+app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'default-secret-key')
+socketio = SocketIO(app, cors_allowed_origins="*")
+
+# Global cache for known faces: { section_name: (encodings, ids) }
+known_faces_cache = {}
 
 # Initialize Flask-Login
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
 
-# Database connection pool configuration
-dbconfig = {
-    'host': 'localhost',
-    'user': 'root',
-    'password': 'password',
-    'database': 'attendance_system',
-    'pool_size': 5,  # Set the pool size according to your needs
-    'pool_name': 'attendance_pool',
-    'pool_reset_session': True,
-    'connection_timeout': 30
-}
-db_pool = mysql.connector.pooling.MySQLConnectionPool(**dbconfig)
+# Helper function to get DB connection
+def get_db_connection():
+    return db.get_db_connection()
+
 
 
 # Reset the connection pool
@@ -60,18 +64,24 @@ class CreateSectionForm(FlaskForm):
 
 
 def load_known_students(section_name):
-    conn = db_pool.get_connection()
-    cursor = conn.cursor(dictionary=True)
+    global known_faces_cache
+    if section_name in known_faces_cache:
+        return known_faces_cache[section_name]
 
-    # Fetch students in the specified section
-    cursor.execute("""
-                   SELECT roll_number, facial_embedding
-                   FROM students
-                   WHERE section_name = %s
-                   """, (section_name,))
-    students = cursor.fetchall()
-    cursor.close()
-    conn.close()
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    try:
+        # Fetch students in the specified section
+        cursor.execute("""
+                       SELECT roll_number, facial_embedding
+                       FROM students
+                       WHERE section_name = %s
+                       """, (section_name,))
+        students = cursor.fetchall()
+    finally:
+        cursor.close()
+        conn.close()
 
     known_face_encodings = []
     known_face_ids = []
@@ -79,23 +89,22 @@ def load_known_students(section_name):
     for student in students:
         if student['facial_embedding']:
             try:
-                # Decode the facial embedding bytes into a string
-                encoding_bytes = student['facial_embedding']
-                encoding_str = encoding_bytes.decode('utf-8')  # Convert bytes to string
-                encoding_list = [float(x) for x in encoding_str.split(',')]  # Split and convert to floats
-                known_face_encodings.append(np.array(encoding_list, dtype=np.float64))  # Convert to NumPy array
+                # Decode the facial embedding bytes
+                known_face_encodings.append(pickle.loads(student['facial_embedding']))
                 known_face_ids.append(student['roll_number'])
-            except ValueError as e:
+            except (ValueError, pickle.PickleError) as e:
                 print(f"Error decoding facial embedding for student {student['roll_number']}: {e}")
             except AttributeError as e:
                 print(f"Error processing facial embedding for student {student['roll_number']}: {e}")
 
+    
+    # Cache the results
+    known_faces_cache[section_name] = (known_face_encodings, known_face_ids)
     return known_face_encodings, known_face_ids
 
 
-@app.route('/process_video', methods=['POST'])
-def process_video():
-    data = request.get_json()
+@socketio.on('process_frame')
+def handle_frame(data):
     image_data = data.get('image')  # Base64-encoded image
     section_name = data.get('section_name')
 
@@ -104,21 +113,25 @@ def process_video():
 
     known_face_encodings = [np.array(encoding, dtype=np.float64) for encoding in known_face_encodings]
 
-    # Decode the image
-    image_data = image_data.split(",")[1]
-    image = base64.b64decode(image_data)
-
-    np_image = np.frombuffer(image, dtype=np.uint8)
-
-    img = cv2.imdecode(np_image, cv2.IMREAD_COLOR)
+    try:
+        # Decode the image
+        image_data = image_data.split(",")[1]
+        image = base64.b64decode(image_data)
+        np_image = np.frombuffer(image, dtype=np.uint8)
+        img = cv2.imdecode(np_image, cv2.IMREAD_COLOR)
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB) # Convert to RGB for face_recognition
+    except Exception as e:
+        emit('frame_processed', {'success': False, 'message': f'Error decoding image: {e}'})
+        return
 
     # If no known face encodings are found, return an empty response
     if not known_face_encodings:
-        return jsonify({
+        emit('frame_processed', {
             'success': True,
             'faces': [],
             'message': 'No known students found for this section.'
         })
+        return
 
     # Perform facial recognition
     face_locations = face_recognition.face_locations(img)
@@ -130,10 +143,13 @@ def process_video():
         matches = face_recognition.compare_faces(known_face_encodings, face_encoding)
         face_distances = face_recognition.face_distance(known_face_encodings, face_encoding)
 
+        student_id = "Unknown"
+
         # If a match is found, get the student ID
         if True in matches:
             best_match_index = np.argmin(face_distances)
-            student_id = known_face_ids[best_match_index]
+            if matches[best_match_index]:
+                student_id = known_face_ids[best_match_index]
             print(f'{student_id} found')
 
         # Append face location and student ID to results
@@ -141,12 +157,8 @@ def process_video():
             "location": face_location,  # [top, right, bottom, left]
             "student_id": student_id
         })
-
-    return jsonify({
-        'success': True,
-        'faces': faces_info,
-        'message': f"Processed {len(face_locations)} face(s)"
-    })
+        
+    emit('frame_processed', {'success': True, 'faces': faces_info})
 
 
 @app.route('/', methods=['GET', 'POST'])
@@ -162,33 +174,41 @@ def login():
         password = form.password.data
         role = form.role.data
 
-        conn = db_pool.get_connection()
-        cursor = conn.cursor(dictionary=True)
-        user = None
+        try:
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            user = None
+    
+            # Check if user is a student
+            if role == 'student':
+                cursor.execute("SELECT roll_number, name, password_hash FROM students WHERE roll_number = %s", (username,))
+                student = cursor.fetchone()
+                if student and check_password_hash(student['password_hash'], password):
+                    user = User(student['roll_number'], 'student', student['name'])
+    
+            # Check if user is faculty
+            elif role == 'faculty':
+                cursor.execute("SELECT faculty_id, name, password_hash FROM faculty WHERE faculty_id = %s", (username,))
+                faculty = cursor.fetchone()
+                if faculty and check_password_hash(faculty['password_hash'], password):
+                    user = User(faculty['faculty_id'], 'faculty', faculty['name'])
+    
+            # Check if user is admin
+            elif role == 'admin':
+                cursor.execute("SELECT admin_id, username, password_hash FROM admin WHERE admin_id = %s", (username,))
+                admin = cursor.fetchone()
+                if admin and check_password_hash(admin['password_hash'], password):
+                    user = User(admin['admin_id'], 'admin', admin['username'])
 
-        # Check if user is a student
-        if role == 'student':
-            cursor.execute("SELECT roll_number, name, password_hash FROM students WHERE roll_number = %s", (username,))
-            student = cursor.fetchone()
-            if student and student['password_hash'] == password:  # Compare plain-text passwords
-                user = User(student['roll_number'], 'student', student['name'])
-
-        # Check if user is faculty
-        elif role == 'faculty':
-            cursor.execute("SELECT faculty_id, name, password_hash FROM faculty WHERE faculty_id = %s", (username,))
-            faculty = cursor.fetchone()
-            if faculty and faculty['password_hash'] == password:  # Compare plain-text passwords
-                user = User(faculty['faculty_id'], 'faculty', faculty['name'])
-
-        # Check if user is admin
-        elif role == 'admin':
-            cursor.execute("SELECT admin_id, username, password_hash FROM admin WHERE admin_id = %s", (username,))
-            admin = cursor.fetchone()
-            if admin and admin['password_hash'] == password:  # Compare plain-text passwords
-                user = User(admin['admin_id'], 'admin', admin['username'])
-
-        cursor.close()
-        conn.close()
+        except Exception as e:
+            print(f"Login error: {e}")
+            flash('An error occurred during login.', 'danger')
+            return render_template('login.html', form=form)
+        finally:
+            if 'cursor' in locals() and cursor:
+                cursor.close()
+            if 'conn' in locals() and conn:
+                conn.close()
 
         if user:
             login_user(user)
@@ -199,19 +219,37 @@ def login():
             return redirect(url_for('dashboard'))
         else:
             flash('Invalid username, password, or role!', 'danger')
-
+    
     return render_template('login.html', form=form)
+
+
+
+@app.route('/dev-login')
+def dev_login():
+    """Temporary route to bypass login for testing mark_attendance."""
+    # Set up a dummy session for faculty 'f001'
+    user = User('f001', 'faculty', 'Dev Faculty')
+    login_user(user)
+    session['id'] = 'f001'
+    session['role'] = 'faculty'
+    session['name'] = 'Dev Faculty'
+    
+    # Redirect to mark_attendance with default test parameters
+    return redirect(url_for('mark_attendance', faculty_id='f001', subject_id='1', section_name='A'))
 
 
 @app.route('/manage-faculty', methods=['GET', 'POST'])
 def manage_faculty():
     if session.get('role') != 'admin':
         return jsonify({'success': False, 'message': 'Unauthorized access!'}), 403
-    conn = db_pool.get_connection()
-    cursor = conn.cursor(dictionary=True)
-    cursor.execute("SELECT faculty_id, name, email FROM faculty")
-    faculty_data = cursor.fetchall()
-    cursor.close()
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("SELECT faculty_id, name, email FROM faculty")
+        faculty_data = cursor.fetchall()
+    finally:
+        cursor.close()
+        conn.close()
 
     faculty_list = []
     for faculty in faculty_data:
@@ -226,12 +264,14 @@ def manage_faculty():
 
 @app.route('/fetch-faculty', methods=['GET'])
 def fetch_faculty():
-    conn = db_pool.get_connection()
-    cursor = conn.cursor(dictionary=True)
-    cursor.execute("SELECT faculty_id, name, email FROM faculty")
-    faculty_data = cursor.fetchall()
-    cursor.close()
-    conn.close()
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("SELECT faculty_id, name, email FROM faculty")
+        faculty_data = cursor.fetchall()
+    finally:
+        cursor.close()
+        conn.close()
 
     # Debugging: Print the fetched data
     print(faculty_data)
@@ -266,42 +306,44 @@ def add_faculty():
     if not re.match(r"[^@]+@[^@]+\.[^@]+", email):
         return jsonify({'success': False, 'message': 'Invalid email address'})
 
-    conn = db_pool.get_connection()
-    cursor = conn.cursor(dictionary=True)
+    hashed_password = generate_password_hash(password)
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
     try:
         cursor.execute("INSERT INTO faculty (faculty_id, name, email, password_hash) VALUES (%s, %s, %s, %s)",
-                       (faculty_id, full_name, email, password))
+                       (faculty_id, full_name, email, hashed_password))
         conn.commit()
-        cursor.close()
-        conn.close()
         return jsonify({'success': True})
     except Exception as e:
+        return jsonify({'success': False, 'message': str(e)})
+    finally:
         cursor.close()
         conn.close()
-        return jsonify({'success': False, 'message': str(e)})
 
 
 # Route to delete a faculty member by faculty_id
 @app.route('/delete-faculty/<faculty_id>', methods=['DELETE'])
 def delete_faculty(faculty_id):
-    conn = db_pool.get_connection()
-    cursor = conn.cursor(dictionary=True)
+    conn = get_db_connection()
+    cursor = conn.cursor()
     try:
         cursor.execute("DELETE FROM faculty WHERE faculty_id = %s", [faculty_id])
         conn.commit()
-        cursor.close()
-        conn.close()
         return jsonify({'success': True})
     except Exception as e:
+        return jsonify({'success': False, 'message': str(e)})
+    finally:
         cursor.close()
         conn.close()
-        return jsonify({'success': False, 'message': str(e)})
 
 
 # User Loader
 @login_manager.user_loader
 def load_user(id):
-    return User(session.get('id'), session.get('role'), session.get('name'))
+    if session.get('id') == id and session.get('role'):
+        return User(session.get('id'), session.get('role'), session.get('name'))
+    return None
 
 
 class LoginForm(FlaskForm):
@@ -342,19 +384,28 @@ def add_student():
         full_name = data['fullName']
         roll_number = data['rollNumber']
         email = data['email']
-        password = data['password']  # Consider hashing the password before storing it!
+        password = data['password']
+        hashed_password = generate_password_hash(password)
         section_name = data['sectionName']
         photo_base64 = data['photo']
+
+        # Sanitize roll number for filename usage
+        safe_roll_number = "".join([c for c in roll_number if c.isalnum() or c in ('-', '_')])
+        if not safe_roll_number:
+            safe_roll_number = "unknown_student"
 
         photo_base64 = photo_base64.split(",")[1]
         photo_bytes = base64.b64decode(photo_base64)  # Decode only once
 
+        image_path = None
+        cropped_image_path = None
+
         try:  # Image processing try block
             image = Image.open(BytesIO(photo_bytes))
             image = np.array(image)
-            image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+            image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB) # Convert RGB (PIL) to BGR (OpenCV)
 
-            image_filename = f"{roll_number}.jpg"
+            image_filename = f"{safe_roll_number}.jpg"
             image_path = os.path.join(UPLOAD_FOLDER, image_filename)
             cv2.imwrite(image_path, image)  # Save the original image
 
@@ -365,59 +416,68 @@ def add_student():
                 (top, right, bottom, left) = faces[0]  # Get face coordinates
                 face_image = image[top:bottom, left:right]  # Correct slicing order
 
-                crop_file_name = f"{roll_number}_face.jpg"
+                crop_file_name = f"{safe_roll_number}_face.jpg"
                 cropped_image_path = os.path.join(UPLOAD_FOLDER, crop_file_name)
                 cv2.imwrite(cropped_image_path, face_image)
 
-                img = cv2.imread(cropped_image_path)
-                img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+                # Use the in-memory face_image directly
+                # face_image is BGR (from 'image'), need RGB for face_encodings
+                img_rgb = cv2.cvtColor(face_image, cv2.COLOR_BGR2RGB)
 
                 try:
-                    encodings = face_recognition.face_encodings(img)
+                    encodings = face_recognition.face_encodings(img_rgb)
                     encodings = np.array(encodings, dtype=np.float64)
                     if len(encodings) > 0:
                         encode = encodings[0]
-                        encoding_str = ",".join(map(str, encode))
+                        encoding_blob = pickle.dumps(encode)
                     else:
-                        os.remove(image_path)  # Clean up if no face in cropped image
-                        os.remove(cropped_image_path)
+                        if image_path and os.path.exists(image_path): os.remove(image_path)
+                        if cropped_image_path and os.path.exists(cropped_image_path): os.remove(cropped_image_path)
                         return jsonify({"success": False, "message": "No face detected in cropped image."}), 400
                 except Exception as e:
                     print(f"Encoding Error: {e}")
-                    os.remove(image_path)  # Clean up
-                    os.remove(cropped_image_path)
+                    if image_path and os.path.exists(image_path): os.remove(image_path)
+                    if cropped_image_path and os.path.exists(cropped_image_path): os.remove(cropped_image_path)
                     return jsonify({"success": False, "message": "Error encoding face."}), 500
 
-                os.remove(image_path)  # Remove the original image after cropping and encoding
+                # Remove the original image after cropping and encoding? 
+                # Keeping it might be useful, but the logic previously deleted it.
+                if image_path and os.path.exists(image_path): os.remove(image_path) 
 
             else:
-                os.remove(image_path)  # Clean up original image if no face detected
+                if image_path and os.path.exists(image_path): os.remove(image_path)
                 return jsonify({"success": False, "message": "No face detected in the uploaded image."}), 400
 
         except (FileNotFoundError, OSError, IOError, Exception) as e:  # Catch potential image processing errors
             print(f"Image Error: {e}")
             try:
-                os.remove(image_path)  # Clean up if the image was saved
+                if image_path and os.path.exists(image_path): os.remove(image_path)
             except:
                 pass
-            return jsonify({"success": False, "message": "Error processing image."}), 400
+            return jsonify({"success": False, "message": f"Error processing image: {str(e)}"}), 400
 
-        conn = db_pool.get_connection()
+        conn = get_db_connection()
         cursor = conn.cursor()  # No need for dictionary=True if not fetching data
-        query = """
-                INSERT INTO students (name, roll_number, email, password_hash, section_name, facial_embedding)
-                VALUES (%s, %s, %s, %s, %s, %s) \
-                """
-        cursor.execute(query, (full_name, roll_number, email, password, section_name, encoding_str))  # Hash password!
-        conn.commit()
-        cursor.close()
-        conn.close()
+        try:
+            query = """
+                    INSERT INTO students (name, roll_number, email, password_hash, section_name, facial_embedding)
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                    """
+            cursor.execute(query, (full_name, roll_number, email, hashed_password, section_name, encoding_blob))
+            conn.commit()
+            
+            # Invalidate cache for this section
+            if section_name in known_faces_cache:
+                del known_faces_cache[section_name]
 
-        return jsonify({"success": True, "message": "Student added successfully!"})
+            return jsonify({"success": True, "message": "Student added successfully!"})
+        finally:
+            cursor.close()
+            conn.close()
 
     except Exception as e:  # Catch database or other errors
         print(f"General Error: {e}")
-        return jsonify({"success": False, "message": "Failed to add student!"}), 500
+        return jsonify({"success": False, "message": f"Failed to add student: {str(e)}"}), 500
 
 
 @app.route('/register-facial-data', methods=['GET', 'POST'])
@@ -436,6 +496,7 @@ def register_facial_data():
         image = base64.b64decode(image_data)
         np_image = np.frombuffer(image, dtype=np.uint8)
         img = cv2.imdecode(np_image, cv2.IMREAD_COLOR)
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB) # Convert to RGB for face_recognition
 
         # Extract facial encoding
         face_encodings = face_recognition.face_encodings(img)
@@ -443,23 +504,26 @@ def register_facial_data():
             return jsonify({'success': False, 'message': 'No face detected in the image.'}), 400
 
         facial_encoding = face_encodings[0].tolist()
-        encoding_str = ",".join(map(str, facial_encoding))
+        encoding_blob = pickle.dumps(facial_encoding)
 
         # Update the user's facial encoding in the database
         user_id = session.get('id')
         user_role = session.get('role')
 
-        conn = db_pool.get_connection()
+        conn = get_db_connection()
         cursor = conn.cursor()
 
         if user_role == 'student':
-            cursor.execute("UPDATE students SET facial_embedding = %s WHERE roll_number = %s", (encoding_str, user_id))
+            cursor.execute("UPDATE students SET facial_embedding = %s WHERE roll_number = %s", (encoding_blob, user_id))
         elif user_role == 'faculty':
-            cursor.execute("UPDATE faculty SET facial_embedding = %s WHERE faculty_id = %s", (encoding_str, user_id))
+            cursor.execute("UPDATE faculty SET facial_embedding = %s WHERE faculty_id = %s", (encoding_blob, user_id))
 
         conn.commit()
         cursor.close()
         conn.close()
+
+        # Invalidate all cache since we don't know the section easily
+        known_faces_cache.clear()
 
         return jsonify({'success': True, 'message': 'Facial data registered successfully!'})
     except Exception as e:
@@ -536,8 +600,8 @@ def verify_facial_data():
     role = data.get('role')
 
     # Fetch the stored facial encoding for the user
-    conn = db_pool.get_connection()
-    cursor = conn.cursor(dictionary=True)
+    conn = get_db_connection()
+    cursor = conn.cursor()
 
     if role == 'student':
         cursor.execute("SELECT facial_embedding FROM students WHERE roll_number = %s", (username,))
@@ -584,8 +648,8 @@ def fetch_sections():
         return jsonify({'success': False, 'message': 'Unauthorized access!'}), 403
 
     try:
-        conn = db_pool.get_connection()
-        cursor = conn.cursor(dictionary=True)
+        conn = get_db_connection()
+        cursor = conn.cursor()
         cursor.execute("SELECT section_name FROM sections")
         sections = cursor.fetchall()
         cursor.close()
@@ -593,7 +657,7 @@ def fetch_sections():
 
         return jsonify({'success': True, 'sections': sections})
 
-    except mysql.connector.Error as err:
+    except Exception as err:
         return jsonify({'success': False, 'message': f'Database error: {err}'}), 500
 
 
@@ -602,29 +666,31 @@ def fetch_sections():
 def fetch_section_details():
     section_name = request.args.get('section_name')
 
-    conn = db_pool.get_connection()
-    cursor = conn.cursor(dictionary=True)
+    conn = get_db_connection()
+    cursor = conn.cursor()
 
-    # Fetch subjects and faculty for the section
-    cursor.execute("""
-                   SELECT s.subject_id, s.subject_name, f.name AS faculty_name
-                   FROM faculty_subjects fs
-                            JOIN subjects s ON fs.subject_id = s.subject_id
-                            JOIN faculty f ON fs.faculty_id = f.faculty_id
-                   WHERE fs.section_name = %s
-                   """, (section_name,))
-    subjects = cursor.fetchall()
+    try:
+        # Fetch subjects and faculty for the section
+        cursor.execute("""
+                       SELECT s.subject_id, s.subject_name, f.name AS faculty_name
+                       FROM faculty_subjects fs
+                                JOIN subjects s ON fs.subject_id = s.subject_id
+                                JOIN faculty f ON fs.faculty_id = f.faculty_id
+                       WHERE fs.section_name = %s
+                       """, (section_name,))
+        subjects = cursor.fetchall()
 
-    # Fetch available subjects
-    cursor.execute("SELECT subject_id, subject_name FROM subjects")
-    available_subjects = cursor.fetchall()
+        # Fetch available subjects
+        cursor.execute("SELECT subject_id, subject_name FROM subjects")
+        available_subjects = cursor.fetchall()
 
-    # Fetch available faculty
-    cursor.execute("SELECT faculty_id, name FROM faculty")
-    available_faculty = cursor.fetchall()
+        # Fetch available faculty
+        cursor.execute("SELECT faculty_id, name FROM faculty")
+        available_faculty = cursor.fetchall()
 
-    cursor.close()
-    conn.close()
+    finally:
+        cursor.close()
+        conn.close()
 
     return jsonify({
         'success': True,
@@ -642,7 +708,7 @@ def assign_subject():
     subject_id = data.get('subject_id')
     faculty_id = data.get('faculty_id')
 
-    conn = db_pool.get_connection()
+    conn = get_db_connection()
     cursor = conn.cursor()
 
     try:
@@ -652,7 +718,7 @@ def assign_subject():
                        """, (faculty_id, subject_id, section_name))
         conn.commit()
         return jsonify({'success': True})
-    except mysql.connector.Error as err:
+    except Exception as err:
         return jsonify({'success': False, 'message': str(err)})
     finally:
         cursor.close()
@@ -666,7 +732,7 @@ def remove_subject():
     section_name = data.get('section_name')
     subject_id = data.get('subject_id')
 
-    conn = db_pool.get_connection()
+    conn = get_db_connection()
     cursor = conn.cursor()
 
     try:
@@ -678,7 +744,7 @@ def remove_subject():
                        """, (section_name, subject_id))
         conn.commit()
         return jsonify({'success': True})
-    except mysql.connector.Error as err:
+    except Exception as err:
         return jsonify({'success': False, 'message': str(err)})
     finally:
         cursor.close()
@@ -719,25 +785,27 @@ def add_subject():
         if not subject_name:
             return jsonify({'success': False, 'message': 'Subject name is required!'}), 400
 
-        conn = db_pool.get_connection()
-        cursor = conn.cursor(dictionary=True)
+        conn = get_db_connection()
+        cursor = conn.cursor()
 
-        # Check if the subject already exists
-        cursor.execute("SELECT subject_name FROM subjects WHERE subject_name = %s", (subject_name,))
-        existing_subject = cursor.fetchone()
-        if existing_subject:
-            return jsonify({'success': False, 'message': 'Subject already exists!'}), 400
+        try:
+            # Check if the subject already exists
+            cursor.execute("SELECT subject_name FROM subjects WHERE subject_name = %s", (subject_name,))
+            existing_subject = cursor.fetchone()
+            if existing_subject:
+                return jsonify({'success': False, 'message': 'Subject already exists!'}), 400
 
-        # Insert the new subject into the database
-        cursor.execute("INSERT INTO subjects (subject_name) VALUES (%s)", (subject_name,))
-        conn.commit()
+            # Insert the new subject into the database
+            cursor.execute("INSERT INTO subjects (subject_name) VALUES (%s)", (subject_name,))
+            conn.commit()
 
-        cursor.close()
-        conn.close()
+            return jsonify({'success': True, 'message': 'Subject added successfully!'})
 
-        return jsonify({'success': True, 'message': 'Subject added successfully!'})
+        finally:
+            cursor.close()
+            conn.close()
 
-    except mysql.connector.Error as err:
+    except Exception as err:
         return jsonify({'success': False, 'message': f'Database error: {err}'}), 500
 
 
@@ -748,16 +816,18 @@ def fetch_subjects():
         return jsonify({'success': False, 'message': 'Unauthorized access!'}), 403
 
     try:
-        conn = db_pool.get_connection()
-        cursor = conn.cursor(dictionary=True)
-        cursor.execute("SELECT subject_id, subject_name FROM subjects")
-        subjects = cursor.fetchall()
-        cursor.close()
-        conn.close()
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        try:
+            cursor.execute("SELECT subject_id, subject_name FROM subjects")
+            subjects = cursor.fetchall()
+        finally:
+            cursor.close()
+            conn.close()
 
         return jsonify({'success': True, 'subjects': subjects})
 
-    except mysql.connector.Error as err:
+    except Exception as err:
         return jsonify({'success': False, 'message': f'Database error: {err}'}), 500
 
 
@@ -768,19 +838,19 @@ def delete_subject(subject_id):
         return jsonify({'success': False, 'message': 'Unauthorized access!'}), 403
 
     try:
-        conn = db_pool.get_connection()
-        cursor = conn.cursor(dictionary=True)
+        conn = get_db_connection()
+        cursor = conn.cursor()
 
-        # Delete the subject from the database
-        cursor.execute("DELETE FROM subjects WHERE subject_id = %s", (subject_id,))
-        conn.commit()
-
-        cursor.close()
-        conn.close()
-
-        return jsonify({'success': True, 'message': 'Subject deleted successfully!'})
-
-    except mysql.connector.Error as err:
+        try:
+            # Delete the subject from the database
+            cursor.execute("DELETE FROM subjects WHERE subject_id = %s", (subject_id,))
+            conn.commit()
+            return jsonify({'success': True, 'message': 'Subject deleted successfully!'})
+        finally:
+            cursor.close()
+            conn.close()
+    
+    except Exception as err:
         return jsonify({'success': False, 'message': f'Database error: {err}'}), 500
 
 
@@ -792,30 +862,31 @@ def manage_sections():
         return redirect(url_for('dashboard'))
 
     form = CreateSectionForm()
-    conn = db_pool.get_connection()
-    cursor = conn.cursor(dictionary=True)
+    conn = get_db_connection()
+    cursor = conn.cursor()
 
-    # Fetch all sections from the database
-    cursor.execute("SELECT section_name FROM sections")
-    sections = cursor.fetchall()
+    try:
+        # Fetch all sections from the database
+        cursor.execute("SELECT section_name FROM sections")
+        sections = cursor.fetchall()
 
-    if form.validate_on_submit():
-        section_name = form.section_name.data
+        if form.validate_on_submit():
+            section_name = form.section_name.data
 
-        # Check if the section already exists
-        cursor.execute("SELECT section_name FROM sections WHERE section_name = %s", (section_name,))
-        existing_section = cursor.fetchone()
-        if existing_section:
-            flash('Section already exists!', 'danger')
-        else:
-            # Insert the new section into the database
-            cursor.execute("INSERT INTO sections (section_name) VALUES (%s)", (section_name,))
-            conn.commit()
-            flash('Section created successfully!', 'success')
-            return redirect(url_for('manage_sections'))
-
-    cursor.close()
-    conn.close()
+            # Check if the section already exists
+            cursor.execute("SELECT section_name FROM sections WHERE section_name = %s", (section_name,))
+            existing_section = cursor.fetchone()
+            if existing_section:
+                flash('Section already exists!', 'danger')
+            else:
+                # Insert the new section into the database
+                cursor.execute("INSERT INTO sections (section_name) VALUES (%s)", (section_name,))
+                conn.commit()
+                flash('Section created successfully!', 'success')
+                return redirect(url_for('manage_sections'))
+    finally:
+        cursor.close()
+        conn.close()
     return render_template('manage_sections.html', form=form, sections=sections)
 
 
@@ -832,25 +903,25 @@ def add_section():
         if not section_name:
             return jsonify({'success': False, 'message': 'Section name is required!'}), 400
 
-        conn = db_pool.get_connection()
-        cursor = conn.cursor(dictionary=True)
+        conn = get_db_connection()
+        cursor = conn.cursor()
 
-        # Check if the section already exists
-        cursor.execute("SELECT section_name FROM sections WHERE section_name = %s", (section_name,))
-        existing_section = cursor.fetchone()
-        if existing_section:
-            return jsonify({'success': False, 'message': 'Section already exists!'}), 400
+        try:
+            # Check if the section already exists
+            cursor.execute("SELECT section_name FROM sections WHERE section_name = %s", (section_name,))
+            existing_section = cursor.fetchone()
+            if existing_section:
+                return jsonify({'success': False, 'message': 'Section already exists!'}), 400
 
-        # Insert the new section into the database
-        cursor.execute("INSERT INTO sections (section_name) VALUES (%s)", (section_name,))
-        conn.commit()
+            # Insert the new section into the database
+            cursor.execute("INSERT INTO sections (section_name) VALUES (%s)", (section_name,))
+            conn.commit()
+            return jsonify({'success': True, 'message': 'Section added successfully!'})
+        finally:
+            cursor.close()
+            conn.close()
 
-        cursor.close()
-        conn.close()
-
-        return jsonify({'success': True, 'message': 'Section added successfully!'})
-
-    except mysql.connector.Error as err:
+    except Exception as err:
         return jsonify({'success': False, 'message': f'Database error: {err}'}), 500
 
 
@@ -861,20 +932,20 @@ def delete_section(section_name):
         return jsonify({'success': False, 'message': 'Unauthorized access!'}), 403
 
     try:
-        conn = db_pool.get_connection()
-        cursor = conn.cursor(dictionary=True)
+        conn = get_db_connection()
+        cursor = conn.cursor()
 
-        # Delete the section from the database
-        cursor.execute("DELETE FROM sections WHERE section_name = %s", (section_name,))
-        conn.commit()
+        try:
+            # Delete the section from the database
+            cursor.execute("DELETE FROM sections WHERE section_name = %s", (section_name,))
+            conn.commit()
+            flash('Section deleted successfully!', 'success')
+            return redirect(url_for('manage_sections'))
+        finally:
+            cursor.close()
+            conn.close()
 
-        cursor.close()
-        conn.close()
-
-        flash('Section deleted successfully!', 'success')
-        return redirect(url_for('manage_sections'))
-
-    except mysql.connector.Error as err:
+    except Exception as err:
         flash(f'Error deleting section: {err}', 'danger')
         return redirect(url_for('manage_sections'))
 
@@ -892,12 +963,14 @@ def manage_students():
 @app.route('/fetch-students', methods=['GET'])
 def fetch_students():
     try:
-        conn = db_pool.get_connection()
-        cursor = conn.cursor(dictionary=True)
-        cursor.execute("SELECT name, roll_number, email FROM students")
-        students = cursor.fetchall()
-        cursor.close()
-        conn.close()
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        try:
+            cursor.execute("SELECT name, roll_number, email FROM students")
+            students = cursor.fetchall()
+        finally:
+            cursor.close()
+            conn.close()
 
         return jsonify({"success": True, "students": students})
 
@@ -909,14 +982,19 @@ def fetch_students():
 @app.route('/delete-student/<roll_number>', methods=['DELETE'])
 def delete_student(roll_number):
     try:
-        conn = db_pool.get_connection()
-        cursor = conn.cursor(dictionary=True)
-        cursor.execute("DELETE FROM students WHERE roll_number = %s", (roll_number,))
-        conn.commit()
-        cursor.close()
-        conn.close()
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        try:
+            cursor.execute("DELETE FROM students WHERE roll_number = %s", (roll_number,))
+            conn.commit()
+            
+            # Invalidate all cache for simplicity
+            known_faces_cache.clear()
 
-        return jsonify({"success": True, "message": "Student deleted successfully"})
+            return jsonify({"success": True, "message": "Student deleted successfully"})
+        finally:
+            cursor.close()
+            conn.close()
 
     except Exception as e:
         return jsonify({"success": False, "message": str(e)})
@@ -927,8 +1005,8 @@ def delete_student(roll_number):
 def fetch_faculty_classes():
     faculty_id = session.get('id')  # Get the logged-in faculty's ID from the session
 
-    conn = db_pool.get_connection()
-    cursor = conn.cursor(dictionary=True)
+    conn = get_db_connection()
+    cursor = conn.cursor()
 
     try:
         # Fetch the faculty's assigned classes (subject-section combinations)
@@ -944,7 +1022,7 @@ def fetch_faculty_classes():
             'success': True,
             'classes': classes,
         })
-    except mysql.connector.Error as err:
+    except Exception as err:
         return jsonify({
             'success': False,
             'message': f'Database error: {err}',
@@ -964,16 +1042,18 @@ def mark_attendance():
     print('for mark-attendance', faculty_id, subject_id, section_name)
 
     # Fetch students enrolled in the current class
-    conn = db_pool.get_connection()
-    cursor = conn.cursor(dictionary=True)
-    cursor.execute("""
-                   SELECT s.roll_number, s.name, s.facial_embedding
-                   FROM students s
-                   WHERE section_name = %s
-                   """, (section_name,))
-    students = cursor.fetchall()
-    cursor.close()
-    conn.close()
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("""
+                       SELECT s.roll_number, s.name, s.facial_embedding
+                       FROM students s
+                       WHERE section_name = %s
+                       """, (section_name,))
+        students = cursor.fetchall()
+    finally:
+        cursor.close()
+        conn.close()
 
     return render_template('mark_attendance.html', username=session.get('name'), students=students, faculty_id=faculty_id, subject_id=subject_id,
                            section_name=section_name)
@@ -988,7 +1068,7 @@ def submit_attendance():
     present_students = data.get('present_students')
     absent_students = data.get('absent_students')
 
-    conn = db_pool.get_connection()
+    conn = get_db_connection()
     cursor = conn.cursor()
 
     try:
@@ -1008,7 +1088,7 @@ def submit_attendance():
 
         conn.commit()
         return jsonify({'success': True})
-    except mysql.connector.Error as err:
+    except Exception as err:
         return jsonify({'success': False, 'message': str(err)})
     finally:
         cursor.close()
@@ -1022,7 +1102,7 @@ def submit_attendance():
     present_students = data.get('present_students')
     absent_students = data.get('absent_students')
 
-    conn = db_pool.get_connection()
+    conn = get_db_connection()
     cursor = conn.cursor()
 
     try:
@@ -1030,13 +1110,13 @@ def submit_attendance():
         for student_id in present_students:
             cursor.execute("""
                 INSERT INTO attendance (roll_number, subject_id, date, status, faculty_id)
-                VALUES (%s, %s, CURDATE(), 'Present', %s)
+                VALUES (%s, %s, CURRENT_DATE, 'Present', %s)
             """, (student_id, subject_id, faculty_id))
 
         for student_id in absent_students:
             cursor.execute("""
                 INSERT INTO attendance (roll_number, subject_id, date, status, faculty_id)
-                VALUES (%s, %s, CURDATE(), 'Absent', %s)
+                VALUES (%s, %s, CURRENT_DATE, 'Absent', %s)
             """, (student_id, subject_id, faculty_id))
 
         # Remove the substitute assignment after attendance is marked
@@ -1047,7 +1127,7 @@ def submit_attendance():
 
         conn.commit()
         return jsonify({'success': True})
-    except mysql.connector.Error as err:
+    except Exception as err:
         return jsonify({'success': False, 'message': str(err)})
     finally:
         cursor.close()
@@ -1060,48 +1140,50 @@ def student_dashboard():
         return jsonify({'success': False, 'message': 'Unauthorized access!'}), 403
 
     student_id = session.get('id')
-    conn = db_pool.get_connection()
-    cursor = conn.cursor(dictionary=True)
+    conn = get_db_connection()
+    cursor = conn.cursor()
 
-    # Fetch student's classes and attendance
-    cursor.execute("""
-                   SELECT s.subject_id,
-                          s.subject_name,
-                          COUNT(a.attendance_id)AS total_classes,
-                          SUM(CASE WHEN a.status = 'Present' THEN 1 ELSE 0 END) AS present_classes FROM attendance a JOIN subjects s ON a.subject_id = s.subject_id JOIN students st ON a.roll_number = st.roll_number -- Join with students table
-                   WHERE a.roll_number = %s -- Filter by roll number
-                   GROUP BY s.subject_id, s.subject_name;
-                   """, (student_id,))
-    classes = cursor.fetchall()
-    print(classes)
-
-    # Calculate attendance percentage for each class
-    for class_info in classes:
-        if class_info['total_classes'] > 0:
-            class_info['attendance_percentage'] = round((class_info['present_classes'] / class_info['total_classes']) * 100, 2)
-        else:
-            class_info['attendance_percentage'] = 0
-
-    # Fetch detailed attendance records for each class
-    for class_info in classes:
+    try:
+        # Fetch student's classes and attendance
         cursor.execute("""
-            SELECT date, status
-            FROM attendance
-            WHERE roll_number = %s AND subject_id = %s
-            ORDER BY date DESC
-        """, (student_id, class_info['subject_id']))
-        class_info['attendance_records'] = cursor.fetchall()
+                       SELECT s.subject_id,
+                              s.subject_name,
+                              COUNT(a.attendance_id)AS total_classes,
+                              SUM(CASE WHEN a.status = 'Present' THEN 1 ELSE 0 END) AS present_classes FROM attendance a JOIN subjects s ON a.subject_id = s.subject_id JOIN students st ON a.roll_number = st.roll_number -- Join with students table
+                       WHERE a.roll_number = %s -- Filter by roll number
+                       GROUP BY s.subject_id, s.subject_name;
+                       """, (student_id,))
+        classes = cursor.fetchall()
+        print(classes)
 
-    # Calculate overall attendance percentage
-    total_classes = sum(class_info['total_classes'] for class_info in classes)
-    present_classes = sum(class_info['present_classes'] for class_info in classes)
-    if total_classes > 0:
-        overall_attendance_percentage = round((present_classes / total_classes) * 100, 2)
-    else:
-        overall_attendance_percentage = 0
+        # Calculate attendance percentage for each class
+        for class_info in classes:
+            if class_info['total_classes'] > 0:
+                class_info['attendance_percentage'] = round((class_info['present_classes'] / class_info['total_classes']) * 100, 2)
+            else:
+                class_info['attendance_percentage'] = 0
 
-    cursor.close()
-    conn.close()
+        # Fetch detailed attendance records for each class
+        for class_info in classes:
+            cursor.execute("""
+                SELECT date, status
+                FROM attendance
+                WHERE roll_number = %s AND subject_id = %s
+                ORDER BY date DESC
+            """, (student_id, class_info['subject_id']))
+            class_info['attendance_records'] = cursor.fetchall()
+
+        # Calculate overall attendance percentage
+        total_classes = sum(class_info['total_classes'] for class_info in classes)
+        present_classes = sum(class_info['present_classes'] for class_info in classes)
+        if total_classes > 0:
+            overall_attendance_percentage = round((present_classes / total_classes) * 100, 2)
+        else:
+            overall_attendance_percentage = 0
+
+    finally:
+        cursor.close()
+        conn.close()
 
     return render_template('student_dashboard.html',
                           user_name=session.get('name'),
@@ -1119,55 +1201,57 @@ def faculty_attendance():
     subject_id = request.args.get('subject_id')
     section_name = request.args.get('section_name')
 
-    conn = db_pool.get_connection()
-    cursor = conn.cursor(dictionary=True)
+    conn = get_db_connection()
+    cursor = conn.cursor()
 
-    # Fetch subject name
-    cursor.execute("SELECT subject_name FROM subjects WHERE subject_id = %s", (subject_id,))
-    subject = cursor.fetchone()
-    subject_name = subject['subject_name']
+    try:
+        # Fetch subject name
+        cursor.execute("SELECT subject_name FROM subjects WHERE subject_id = %s", (subject_id,))
+        subject = cursor.fetchone()
+        subject_name = subject['subject_name']
 
-    # Fetch all students in the section
-    cursor.execute("""
-        SELECT s.roll_number, s.name
-        FROM students s
-        WHERE s.section_name = %s
-    """, (section_name,))
-    students = cursor.fetchall()
-
-    # Fetch attendance data for each student
-    for student in students:
+        # Fetch all students in the section
         cursor.execute("""
-            SELECT COUNT(a.attendance_id) AS total_classes,
-                   SUM(CASE WHEN a.status = 'Present' THEN 1 ELSE 0 END) AS present_classes
-            FROM attendance a
-            WHERE a.roll_number = %s AND a.subject_id = %s
-        """, (student['roll_number'], subject_id))
-        attendance_data = cursor.fetchone()
-        if attendance_data['total_classes'] > 0:
-            student['attendance_percentage'] = round((attendance_data['present_classes'] / attendance_data['total_classes']) * 100, 2)
+            SELECT s.roll_number, s.name
+            FROM students s
+            WHERE s.section_name = %s
+        """, (section_name,))
+        students = cursor.fetchall()
+
+        # Fetch attendance data for each student
+        for student in students:
+            cursor.execute("""
+                SELECT COUNT(a.attendance_id) AS total_classes,
+                       SUM(CASE WHEN a.status = 'Present' THEN 1 ELSE 0 END) AS present_classes
+                FROM attendance a
+                WHERE a.roll_number = %s AND a.subject_id = %s
+            """, (student['roll_number'], subject_id))
+            attendance_data = cursor.fetchone()
+            if attendance_data['total_classes'] > 0:
+                student['attendance_percentage'] = round((attendance_data['present_classes'] / attendance_data['total_classes']) * 100, 2)
+            else:
+                student['attendance_percentage'] = 0
+
+            # Fetch detailed attendance records
+            cursor.execute("""
+                SELECT date, status
+                FROM attendance
+                WHERE roll_number = %s AND subject_id = %s
+                ORDER BY date DESC
+            """, (student['roll_number'], subject_id))
+            student['attendance_records'] = cursor.fetchall()
+
+        # Calculate overall attendance percentage
+        total_classes = sum(student.get('total_classes', 0) for student in students)
+        present_classes = sum(student.get('present_classes', 0) for student in students)
+        if total_classes > 0:
+            overall_attendance_percentage = round((present_classes / total_classes) * 100, 2)
         else:
-            student['attendance_percentage'] = 0
+            overall_attendance_percentage = 0
 
-        # Fetch detailed attendance records
-        cursor.execute("""
-            SELECT date, status
-            FROM attendance
-            WHERE roll_number = %s AND subject_id = %s
-            ORDER BY date DESC
-        """, (student['roll_number'], subject_id))
-        student['attendance_records'] = cursor.fetchall()
-
-    # Calculate overall attendance percentage
-    total_classes = sum(student.get('total_classes', 0) for student in students)
-    present_classes = sum(student.get('present_classes', 0) for student in students)
-    if total_classes > 0:
-        overall_attendance_percentage = round((present_classes / total_classes) * 100, 2)
-    else:
-        overall_attendance_percentage = 0
-
-    cursor.close()
-    conn.close()
+    finally:
+        cursor.close()
+        conn.close()
 
     return render_template('faculty_attendance.html',
                           user_name=session.get('name'),
@@ -1187,8 +1271,8 @@ def analytics_page():
 def get_subject_attendance():
     section_name = request.args.get('section')
 
-    conn = db_pool.get_connection()
-    cursor = conn.cursor(dictionary=True)
+    conn = get_db_connection()
+    cursor = conn.cursor()
 
     try:
         # Fetch subject-wise average attendance for the given section
@@ -1204,7 +1288,7 @@ def get_subject_attendance():
 
         # Prepare data for the chart
         return jsonify(subject_attendance)
-    except mysql.connector.Error as err:
+    except Exception as err:
         return jsonify({
             'success': False,
             'message': f'Database error: {err}'
@@ -1216,29 +1300,31 @@ def get_subject_attendance():
 
 @app.route('/api/analytics')
 def analytics():
-    conn = db_pool.get_connection()
-    cursor = conn.cursor(dictionary=True)
+    conn = get_db_connection()
+    cursor = conn.cursor()
 
-    # Fetch attendance overview data (monthly attendance percentages)
-    cursor.execute("""
-        SELECT DATE_FORMAT(date, '%Y-%m') AS month, AVG(CASE WHEN status = 'Present' THEN 100 ELSE 0 END) AS attendance_percentage
-        FROM attendance
-        GROUP BY DATE_FORMAT(date, '%Y-%m')
-        ORDER BY month
-    """)
-    attendance_overview = cursor.fetchall()
+    try:
+        # Fetch attendance overview data (monthly attendance percentages)
+        cursor.execute("""
+            SELECT TO_CHAR(date, 'YYYY-MM') AS month, AVG(CASE WHEN status = 'Present' THEN 100 ELSE 0 END) AS attendance_percentage
+            FROM attendance
+            GROUP BY TO_CHAR(date, 'YYYY-MM')
+            ORDER BY month
+        """)
+        attendance_overview = cursor.fetchall()
 
-    # Fetch section-wise attendance data
-    cursor.execute("""
-        SELECT s.section_name, AVG(CASE WHEN a.status = 'Present' THEN 100 ELSE 0 END) AS attendance_percentage
-        FROM attendance a
-        JOIN students s ON a.roll_number = s.roll_number
-        GROUP BY s.section_name
-    """)
-    section_attendance = cursor.fetchall()
+        # Fetch section-wise attendance data
+        cursor.execute("""
+            SELECT s.section_name, AVG(CASE WHEN a.status = 'Present' THEN 100 ELSE 0 END) AS attendance_percentage
+            FROM attendance a
+            JOIN students s ON a.roll_number = s.roll_number
+            GROUP BY s.section_name
+        """)
+        section_attendance = cursor.fetchall()
 
-    cursor.close()
-    conn.close()
+    finally:
+        cursor.close()
+        conn.close()
 
     # Format data for the frontend
     data = {
@@ -1268,7 +1354,7 @@ def assign_substitute():
 
     original_faculty_id = session.get('id')  # Logged-in faculty is the original faculty
 
-    conn = db_pool.get_connection()
+    conn = get_db_connection()
     cursor = conn.cursor()
 
     try:
@@ -1280,7 +1366,7 @@ def assign_substitute():
         conn.commit()
 
         return jsonify({'success': True, 'message': 'Substitute assigned successfully!'})
-    except mysql.connector.Error as err:
+    except Exception as err:
         return jsonify({'success': False, 'message': f'Database error: {err}'}), 500
     finally:
         cursor.close()
@@ -1294,8 +1380,8 @@ def fetch_substitute_classes():
 
     substitute_faculty_id = session.get('id')  # Logged-in faculty is the substitute
 
-    conn = db_pool.get_connection()
-    cursor = conn.cursor(dictionary=True)
+    conn = get_db_connection()
+    cursor = conn.cursor()
 
     try:
         # Fetch substitute assignments for the logged-in faculty
@@ -1309,7 +1395,7 @@ def fetch_substitute_classes():
         substitute_classes = cursor.fetchall()
 
         return jsonify({'success': True, 'substitute_classes': substitute_classes})
-    except mysql.connector.Error as err:
+    except Exception as err:
         return jsonify({'success': False, 'message': f'Database error: {err}'}), 500
     finally:
         cursor.close()
@@ -1323,8 +1409,8 @@ def fetch_substitute_assignments():
 
     original_faculty_id = session.get('id')  # Logged-in faculty is the original faculty
 
-    conn = db_pool.get_connection()
-    cursor = conn.cursor(dictionary=True)
+    conn = get_db_connection()
+    cursor = conn.cursor()
 
     try:
         # Fetch substitute assignments for the logged-in faculty
@@ -1338,7 +1424,7 @@ def fetch_substitute_assignments():
         substitute_assignments = cursor.fetchall()
 
         return jsonify({'success': True, 'substitute_assignments': substitute_assignments})
-    except mysql.connector.Error as err:
+    except Exception as err:
         return jsonify({'success': False, 'message': f'Database error: {err}'}), 500
     finally:
         cursor.close()
@@ -1352,8 +1438,8 @@ def fetch_substitute_classes_for_substitute():
 
     substitute_faculty_id = session.get('id')  # Logged-in faculty is the substitute
 
-    conn = db_pool.get_connection()
-    cursor = conn.cursor(dictionary=True)
+    conn = get_db_connection()
+    cursor = conn.cursor()
 
     try:
         # Fetch substitute assignments for the logged-in substitute faculty
@@ -1367,7 +1453,7 @@ def fetch_substitute_classes_for_substitute():
         substitute_classes = cursor.fetchall()
 
         return jsonify({'success': True, 'substitute_classes': substitute_classes})
-    except mysql.connector.Error as err:
+    except Exception as err:
         return jsonify({'success': False, 'message': f'Database error: {err}'}), 500
     finally:
         cursor.close()
@@ -1382,14 +1468,36 @@ def logout():
     session.clear()
     return redirect(url_for('login'))
 
-public_url = ngrok.connect(addr=5000, proto='http').public_url
+# public_url = ngrok.connect(addr=5000, proto='http').public_url
+# 
+# url = pyqrcode.create(public_url)
+# qr_filename = "myqr.png"
+# url.png(qr_filename, scale=6)
+# img = Image.open(qr_filename)
+# img.show()
+# print(" * ngrok URL: " + public_url + " *")
 
-url = pyqrcode.create(public_url)
-qr_filename = "myqr.png"
-url.png(qr_filename, scale=6)
-img = Image.open(qr_filename)
-img.show()
-print(" * ngrok URL: " + public_url + " *")
+def kill_port(port):
+    try:
+        # Find the process ID (PID) using the port
+        # output format: TCP    0.0.0.0:5000           0.0.0.0:0              LISTENING       1234
+        result = subprocess.run(f"netstat -ano | findstr :{port}", shell=True, capture_output=True, text=True)
+        if result.stdout:
+            lines = result.stdout.strip().split('\n')
+            for line in lines:
+                parts = line.split()
+                if len(parts) >= 5:
+                    local_addr = parts[1]
+                    pid = parts[-1]
+                    # Check if the address actually ends with :port to avoid matching 50000, 15000 etc.
+                    if local_addr.endswith(f":{port}") and pid != "0":
+                        print(f"Killing process {pid} on port {port}...")
+                        subprocess.run(f"taskkill /PID {pid} /F", shell=True)
+    except Exception as e:
+        print(f"Error killing port {port}: {e}")
 
 if __name__ == '__main__':
-    app.run()
+    # Kill any process using port 5000 before starting, but only in the main process not the reloader
+    if os.environ.get("WERKZEUG_RUN_MAIN") != "true":
+        kill_port(5000)
+    socketio.run(app, debug=True)

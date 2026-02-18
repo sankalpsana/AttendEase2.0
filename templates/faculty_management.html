@@ -1,299 +1,242 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Manage Faculty - Anurag University</title>
-    <!-- Bootstrap CSS -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
-    <!-- Font Awesome for Icons -->
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
-    <!-- Custom CSS -->
-    <style>
-        /* Same style as student management */
-        body {
-            background: linear-gradient(135deg, #6a11cb, #2575fc);
-            font-family: Arial, sans-serif;
-            color: #333;
-            min-height: 100vh;
-        }
-        .dashboard-wrapper {
-            display: flex;
-            min-height: 100vh;
-            animation: fadeIn 1s ease-in-out;
-        }
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(-20px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        /* Sidebar */
-        .sidebar {
-            width: 250px;
-            background: rgba(255, 255, 255, 0.9);
-            padding: 1.5rem;
-            box-shadow: 4px 0 15px rgba(0, 0, 0, 0.1);
-        }
-        .sidebar h3 {
-            color: #333;
-            font-weight: bold;
-            margin-bottom: 2rem;
-        }
-        .sidebar ul {
-            list-style: none;
-            padding: 0;
-        }
-        .sidebar ul li {
-            margin-bottom: 1rem;
-        }
-        .sidebar ul li a {
-            text-decoration: none;
-            color: #333;
-            font-size: 1rem;
-            transition: color 0.3s ease;
-        }
-        .sidebar ul li a:hover {
-            color: #2575fc;
-        }
-        /* Main Content */
-        .main-content {
-            flex: 1;
-            padding: 2rem;
-            background: rgba(255, 255, 255, 0.9);
-            margin: 1rem;
-            border-radius: 10px;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-        }
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 2rem;
-        }
-        .header h1 {
-            color: #333;
-            font-weight: bold;
-        }
-        .user-info {
-            display: flex;
-            align-items: center;
-        }
-        .user-info img {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            margin-right: 0.5rem;
-        }
-        .user-info span {
-            color: #333;
-            font-weight: bold;
-        }
-        /* Cards */
-        .card {
-            background: #fff;
-            border: none;
-            border-radius: 10px;
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
-            padding: 1.5rem;
-            margin-bottom: 1.5rem;
-            transition: transform 0.3s ease;
-        }
-        .card:hover {
-            transform: translateY(-5px);
-        }
-        .card h5 {
-            color: #333;
-            font-weight: bold;
-            margin-bottom: 1rem;
-        }
-        .card p {
-            color: #666;
-        }
-        .card .btn {
-            margin-right: 0.5rem;
-        }
-        /* Table */
-        .table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 1rem;
-        }
-        .table th, .table td {
-            padding: 0.75rem;
-            border-bottom: 1px solid #ddd;
-            text-align: left;
-        }
-        .table th {
-            background-color: #f8f9fa;
-            font-weight: bold;
-        }
-        .table tr:hover {
-            background-color: #f1f1f1;
-        }
-    </style>
-</head>
-<body>
-<div class="dashboard-wrapper">
-    <!-- Sidebar -->
-    <div class="sidebar">
-        <h3>Admin Dashboard</h3>
-        <ul>
-            <li><a href="/dashboard"><i class="fas fa-dashboard"></i> Dashboard</a></li>
-            <li><a href="/manage-students"><i class="fas fa-graduation-cap "></i> Manage Students</a></li>
-            <li><a href="/manage-faculty"><i class="fas fa-user"></i> Manage Faculty</a></li>
-            <li><a href="/manage-subjects"><i class="fas fa-book"></i> Manage Courses</a></li>
-            <li><a href="/manage-sections"><i class="fas fa-chalkboard"></i> Manage Sections</a></li>
-            <li><a href="/admin-analytics"><i class="fas fa-bar-chart "></i> Analytics</a></li>
-            <li><a href="/logout"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
-        </ul>
+{% extends "base.html" %}
+
+{% block title %}Manage Faculty - AttendEase{% endblock %}
+
+{% block header %}Manage Faculty{% endblock %}
+
+{% block content %}
+<div class="content-card">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div class="input-group search-box" style="width: 300px;">
+            <span class="input-group-text"><i class="fas fa-search text-muted"></i></span>
+            <input type="text" id="searchFaculty" class="form-control" placeholder="Search faculty...">
+        </div>
+        <button class="btn btn-gradient" data-bs-toggle="modal" data-bs-target="#addFacultyModal">
+            <i class="fas fa-plus me-2"></i>Add Faculty
+        </button>
     </div>
 
-    <!-- Main Content -->
-    <div class="main-content">
-        <!-- Header -->
-        <div class="header">
-            <h1>Manage Faculty</h1>
-            <div class="user-info">
-                <img src="profile_user.svg" alt="User">
-                <span>{{ username }}</span>
+    <div class="table-responsive">
+        <table class="table table-hover">
+            <thead>
+                <tr>
+                    <th>Faculty ID</th>
+                    <th>Name</th>
+                    <th>Email</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody id="facultyTableBody">
+                <!-- Faculty rows will be inserted here -->
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Add Faculty Modal -->
+<div class="modal fade" id="addFacultyModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add New Faculty</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-        </div>
-
-        <!-- Add Faculty Form -->
-        <div class="card">
-            <h5>Add New Faculty</h5>
-            <form id="addFacultyForm">
-                <div class="mb-3">
-                    <label for="facultyId" class="form-label">Faculty ID</label>
-                    <input type="text" class="form-control" id="facultyId" required>
-                </div>
-                <div class="mb-3">
-                    <label for="facultyName" class="form-label">Full Name</label>
-                    <input type="text" class="form-control" id="facultyName" required>
-                </div>
-                <div class="mb-3">
-                    <label for="facultyEmail" class="form-label">Email</label>
-                    <input type="email" class="form-control" id="facultyEmail" required>
-                </div>
-                <div class="mb-3">
-                    <label for="facultyPassword" class="form-label">Password</label>
-                    <input type="password" class="form-control" id="facultyPassword" required>
-                </div>
-                <!-- Submit Button -->
-                <button type="submit" class="btn btn-primary">Add Faculty</button>
-            </form>
-        </div>
-
-        <!-- Faculty List -->
-        <div class="card">
-            <h5>Faculty List</h5>
-            <input type="text" id="searchFaculty" class="form-control mb-3" placeholder="Search faculty...">
-            <div class="user-list" id="facultyList">
-                <!-- Faculty records will be dynamically inserted here -->
+            <div class="modal-body">
+                <form id="addFacultyForm">
+                    <div class="mb-3">
+                        <label class="form-label">Faculty ID</label>
+                        <input type="text" class="form-control" id="facultyId" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Full Name</label>
+                        <input type="text" class="form-control" id="fullName" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Email</label>
+                        <input type="email" class="form-control" id="email" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Password</label>
+                        <input type="password" class="form-control" id="password" required>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" onclick="submitAddFaculty()">Save Faculty</button>
             </div>
         </div>
     </div>
 </div>
 
-<!-- Bootstrap JS -->
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+<!-- Edit Faculty Modal -->
+<div class="modal fade" id="editFacultyModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Edit Faculty</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editFacultyForm">
+                    <input type="hidden" id="editOriginalFacultyId">
+                    <div class="mb-3">
+                        <label class="form-label">Faculty ID</label>
+                        <input type="text" class="form-control" id="editFacultyId" disabled>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Full Name</label>
+                        <input type="text" class="form-control" id="editFullName" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Email</label>
+                        <input type="email" class="form-control" id="editEmail" required>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" onclick="submitEditFaculty()">Update Faculty</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
 
-<!-- JavaScript for Fetching and Managing Faculty -->
+{% block scripts %}
 <script>
-    // Fetch and display faculty
-    function fetchFaculty() {
-        fetch('/fetch-faculty')
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    const facultyList = document.querySelector('.user-list');
-                    facultyList.innerHTML = ''; // Clear existing content
+    document.addEventListener('DOMContentLoaded', fetchFaculty);
 
-                    data.faculty.forEach(faculty => {
-                        const facultyItem = document.createElement('div');
-                        facultyItem.classList.add('user-item');
-                        facultyItem.innerHTML = `
-                            <div>
-                                <strong>${faculty.faculty_id} - ${faculty.name}</strong><br>
-                                <small>${faculty.email}</small>
-                            </div>
-                            <button class="btn btn-danger btn-sm" onclick="deleteFaculty('${faculty.faculty_id}')">Delete</button>
+    function fetchFaculty() {
+        const tbody = document.getElementById('facultyTableBody');
+        tbody.innerHTML = '<tr><td colspan="4" class="text-center">Loading...</td></tr>';
+
+        fetch('/fetch-faculty')
+            .then(res => res.json())
+            .then(data => {
+                tbody.innerHTML = '';
+                if (data.success && data.faculty.length > 0) {
+                    data.faculty.forEach(fac => {
+                        const row = `
+                            <tr>
+                                <td>${fac.faculty_id}</td>
+                                <td>${fac.name}</td>
+                                <td>${fac.email}</td>
+                                <td>
+                                    <button class="btn btn-primary action-btn" onclick="openEditModal('${fac.faculty_id}', '${fac.name.replace(/'/g, "\\'")}', '${fac.email}')">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                    <button class="btn btn-danger action-btn" onclick="deleteFaculty('${fac.faculty_id}')">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </td>
+                            </tr>
                         `;
-                        facultyList.appendChild(facultyItem);
+                        tbody.innerHTML += row;
                     });
                 } else {
-                    alert('Failed to fetch faculty!');
+                    tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted">No faculty found</td></tr>';
                 }
             })
-            .catch(error => console.error('Error fetching faculty:', error));
+            .catch(err => {
+                console.error(err);
+                tbody.innerHTML = '<tr><td colspan="4" class="text-center text-danger">Error fetching faculty</td></tr>';
+            });
     }
 
-    // Delete a faculty member
-    function deleteFaculty(facultyId) {
-        if (confirm('Are you sure you want to delete this faculty?')) {
-            fetch(`/delete-faculty/${facultyId}`, {method: 'DELETE'})
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        alert('Faculty deleted successfully!');
-                        fetchFaculty(); // Refresh the faculty list
-                    } else {
-                        alert('Failed to delete faculty!');
-                    }
-                })
-                .catch(error => console.error('Error deleting faculty:', error));
-        }
-    }
-
-    // Search faculty
+    // --- Search ---
     document.getElementById('searchFaculty').addEventListener('input', function () {
-        const searchValue = this.value.toLowerCase();
-        document.querySelectorAll('.user-item').forEach(item => {
-            const name = item.querySelector('strong').textContent.toLowerCase();
-            const details = item.querySelector('small').textContent.toLowerCase();
-            if (name.includes(searchValue) || details.includes(searchValue)) {
-                item.style.display = 'block';
-            } else {
-                item.style.display = 'none';
-            }
+        const value = this.value.toLowerCase();
+        const rows = document.querySelectorAll('#facultyTableBody tr');
+        rows.forEach(row => {
+            const text = row.innerText.toLowerCase();
+            row.style.display = text.includes(value) ? '' : 'none';
         });
     });
 
-    // Handle form submission
-    document.getElementById('addFacultyForm').addEventListener('submit', (e) => {
-        e.preventDefault();
+    // --- Add Faculty ---
+    const addModal = new bootstrap.Modal(document.getElementById('addFacultyModal'));
 
-        const formData = {
+    function submitAddFaculty() {
+        const data = {
             faculty_id: document.getElementById('facultyId').value,
-            fullName: document.getElementById('facultyName').value,
-            email: document.getElementById('facultyEmail').value,
-            password: document.getElementById('facultyPassword').value
+            fullName: document.getElementById('fullName').value,
+            email: document.getElementById('email').value,
+            password: document.getElementById('password').value
         };
+
+        if (!data.faculty_id || !data.fullName || !data.email || !data.password) {
+            alert("Please fill all fields.");
+            return;
+        }
 
         fetch('/add-faculty', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(formData)
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
         })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    alert('Faculty added successfully!');
-                    window.location.reload();
+            .then(res => res.json())
+            .then(res => {
+                if (res.success) {
+                    alert("Faculty added!");
+                    addModal.hide();
+                    // Clear form
+                    document.getElementById('addFacultyForm').reset();
+                    fetchFaculty();
                 } else {
-                    alert(data.message);
+                    alert(res.message);
                 }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                alert('Failed to add faculty!');
             });
-    });
+    }
 
-    // Fetch faculty on page load
-    fetchFaculty();
+    // --- Edit Faculty ---
+    const editModal = new bootstrap.Modal(document.getElementById('editFacultyModal'));
+
+    function openEditModal(id, name, email) {
+        document.getElementById('editOriginalFacultyId').value = id;
+        document.getElementById('editFacultyId').value = id;
+        document.getElementById('editFullName').value = name;
+        document.getElementById('editEmail').value = email;
+        editModal.show();
+    }
+
+    function submitEditFaculty() {
+        const data = {
+            originalFacultyId: document.getElementById('editOriginalFacultyId').value,
+            fullName: document.getElementById('editFullName').value,
+            email: document.getElementById('editEmail').value
+        };
+
+        fetch('/update-faculty', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        })
+            .then(res => res.json())
+            .then(res => {
+                if (res.success) {
+                    alert("Faculty updated!");
+                    editModal.hide();
+                    fetchFaculty();
+                } else {
+                    alert(res.message);
+                }
+            });
+    }
+
+    // --- Delete Faculty ---
+    function deleteFaculty(id) {
+        if (confirm(`Delete faculty ${id}?`)) {
+            fetch(`/delete-faculty/${id}`, { method: 'DELETE' })
+                .then(res => res.json())
+                .then(res => {
+                    if (res.success) {
+                        fetchFaculty();
+                    } else {
+                        alert(res.message);
+                    }
+                });
+        }
+    }
 </script>
-
-</body>
-</html>
+{% endblock %}
