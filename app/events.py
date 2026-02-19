@@ -11,8 +11,11 @@ def handle_frame(data):
     image_data = data.get('image')  # Base64-encoded image
     section_name = data.get('section_name')
 
+    print(f"Frame received for section: {section_name}")
+    
     # Load known students for the current section
     known_face_encodings, known_face_ids = load_known_students(section_name)
+    print(f"Loaded {len(known_face_ids)} known students.")
 
     known_face_encodings = [np.array(encoding, dtype=np.float64) for encoding in known_face_encodings]
 
@@ -22,8 +25,10 @@ def handle_frame(data):
         image = base64.b64decode(image_data)
         np_image = np.frombuffer(image, dtype=np.uint8)
         img = cv2.imdecode(np_image, cv2.IMREAD_COLOR)
+        print(f"Image decoded. Shape: {img.shape}")
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB) # Convert to RGB for face_recognition
     except Exception as e:
+        print(f"Error decoding image: {e}")
         emit('frame_processed', {'success': False, 'message': f'Error decoding image: {e}'})
         return
 
@@ -37,8 +42,11 @@ def handle_frame(data):
         return
 
     # Perform facial recognition
+    print("Detecting face locations...")
     face_locations = face_recognition.face_locations(img)
+    print(f"Found {len(face_locations)} faces. Encoding...")
     face_encodings = face_recognition.face_encodings(img, face_locations)
+    print("Encoded faces. Comparing...")
 
     faces_info = []
 
@@ -61,6 +69,7 @@ def handle_frame(data):
             "student_id": student_id
         })
         
+    print("Frame processing complete. Sending response.")
     emit('frame_processed', {
         'success': True,
         'faces': faces_info,
