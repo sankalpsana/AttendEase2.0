@@ -61,7 +61,12 @@ def handle_frame(data):
             "student_id": student_id
         })
         
-    emit('frame_processed', {'success': True, 'faces': faces_info})
+    emit('frame_processed', {
+        'success': True,
+        'faces': faces_info,
+        'processed_width': data.get('width'),
+        'processed_height': data.get('height')
+    })
 
 def emit_attendance_update(data):
     """

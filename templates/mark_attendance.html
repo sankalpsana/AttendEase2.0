@@ -296,18 +296,28 @@
     });
 
     socket.on('frame_processed', (data) => {
-        // Sync canvas size
         if (video.videoWidth && (canvas.width !== video.videoWidth || canvas.height !== video.videoHeight)) {
             canvas.width = video.videoWidth;
             canvas.height = video.videoHeight;
         }
+
+        const scaleX = canvas.width / (data.processed_width || canvas.width);
+        const scaleY = canvas.height / (data.processed_height || canvas.height);
 
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
         if (data.success && data.faces) {
             data.faces.forEach(face => {
                 const { student_id, location } = face;
-                const [top, right, bottom, left] = location;
+                let [top, right, bottom, left] = location;
+
+                // Scale coordinates back to original video size
+                if (data.processed_width) {
+                    top *= scaleY;
+                    bottom *= scaleY;
+                    left *= scaleX;
+                    right *= scaleX;
+                }
 
                 // Scale coordinates if displayed video size implies scaling (CSS vs Intrinsic)
                 // Since canvas overlays video 1:1 intrinsic resolution-wise (set in logic above), 
@@ -335,27 +345,46 @@
                 }
             });
         }
+    }
+
+        // Acknowledge processing complete
+        isProcessing = false;
     });
 
+    let isProcessing = false;
+
     function sendFrame() {
-        if (!video.videoWidth) return;
+        if (!video.videoWidth || !socket.connected || isProcessing) return;
 
-        const frameCanvas = document.createElement('canvas'); // Offscreen canvas
-        frameCanvas.width = video.videoWidth;
-        frameCanvas.height = video.videoHeight;
+        isProcessing = true;
+
+        // Auto-reset if stuck (e.g. server timeout)
+        setTimeout(() => { isProcessing = false; }, 5000);
+
+        const frameCanvas = document.createElement('canvas');
+        // Resize to 500px width (balance between speed and accuracy)
+        const scale = Math.min(1, 500 / video.videoWidth);
+        const processingWidth = video.videoWidth * scale;
+        const processingHeight = video.videoHeight * scale;
+
+        frameCanvas.width = processingWidth;
+        frameCanvas.height = processingHeight;
+
         const frameCtx = frameCanvas.getContext('2d');
-        frameCtx.drawImage(video, 0, 0);
+        frameCtx.drawImage(video, 0, 0, processingWidth, processingHeight);
 
-        const imageData = frameCanvas.toDataURL('image/jpeg', 0.5);
+        const imageData = frameCanvas.toDataURL('image/jpeg', 0.6); // Lower quality to 0.6
 
         socket.emit('process_frame', {
             image: imageData,
-            section_name: SECTION_NAME
+            section_name: SECTION_NAME,
+            width: processingWidth,
+            height: processingHeight
         });
     }
 
-    // Send frame every 1s
-    setInterval(sendFrame, 1000);
+    // Check every 500ms if we can send a frame
+    setInterval(sendFrame, 500);
 
 </script>
 {% endblock %}
