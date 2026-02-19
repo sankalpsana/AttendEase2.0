@@ -31,6 +31,7 @@
             </tbody>
         </table>
     </div>
+    <div id="facultyPagination" class="mt-3"></div>
 </div>
 
 <!-- Add Faculty Modal -->
@@ -105,6 +106,13 @@
 
 {% block scripts %}
 <script>
+    const facultyPaginator = new TablePaginator({
+        tbodyId: 'facultyTableBody',
+        paginationContainerId: 'facultyPagination',
+        rowsPerPage: 10,
+        searchInputId: 'searchFaculty'
+    });
+
     document.addEventListener('DOMContentLoaded', fetchFaculty);
 
     function fetchFaculty() {
@@ -134,6 +142,7 @@
                         `;
                         tbody.innerHTML += row;
                     });
+                    facultyPaginator.init();
                 } else {
                     tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted">No faculty found</td></tr>';
                 }
@@ -143,16 +152,6 @@
                 tbody.innerHTML = '<tr><td colspan="4" class="text-center text-danger">Error fetching faculty</td></tr>';
             });
     }
-
-    // --- Search ---
-    document.getElementById('searchFaculty').addEventListener('input', function () {
-        const value = this.value.toLowerCase();
-        const rows = document.querySelectorAll('#facultyTableBody tr');
-        rows.forEach(row => {
-            const text = row.innerText.toLowerCase();
-            row.style.display = text.includes(value) ? '' : 'none';
-        });
-    });
 
     // --- Add Faculty ---
     const addModal = new bootstrap.Modal(document.getElementById('addFacultyModal'));

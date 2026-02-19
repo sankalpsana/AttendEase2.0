@@ -1,5 +1,5 @@
 from flask import Blueprint, render_template, redirect, url_for, flash, session, request
-from flask_login import login_user, login_required, logout_user
+from flask_login import login_user, login_required, logout_user, current_user
 from werkzeug.security import check_password_hash
 from app.db import get_db_connection
 from app.models import User
@@ -9,10 +9,14 @@ auth = Blueprint('auth', __name__)
 
 @auth.route('/', methods=['GET', 'POST'])
 def landing():
+    if current_user.is_authenticated:
+        return redirect(url_for('auth.dashboard'))
     return render_template('landing.html')
 
 @auth.route('/login', methods=['GET', 'POST'])
 def login():
+    if current_user.is_authenticated:
+        return redirect(url_for('auth.dashboard'))
     form = LoginForm()
     if form.validate_on_submit():
         username = form.username.data
@@ -26,10 +30,15 @@ def login():
         try:
             # Check if user is a student
             if role == 'student':
-                cursor.execute("SELECT roll_number, name, password_hash FROM students WHERE roll_number = %s", (username,))
+                cursor.execute("SELECT roll_number, name, password_hash, facial_embedding FROM students WHERE roll_number = %s", (username,))
                 student = cursor.fetchone()
                 if student and check_password_hash(student['password_hash'], password):
                     user = User(student['roll_number'], 'student', student['name'])
+                    # Check if facial embedding exists
+                    if student.get('facial_embedding') is None:
+                        session['require_face_registration'] = True
+                    else:
+                        session['require_face_registration'] = False
 
             # Check if user is faculty
             elif role == 'faculty':
@@ -66,6 +75,10 @@ def login():
             # Ideally 'dashboard' shouldn't be in auth, but if we have a main blueprint...
             # For now, let's assume 'main.dashboard' or just 'dashboard' if we define it at app level or auth level.
             # I will put dashboard in auth for now as a generic router.
+            if session.get('require_face_registration'):
+                flash('Please register your facial data to continue.', 'warning')
+                return redirect(url_for('student.register_facial_data'))
+
             return redirect(url_for('auth.dashboard')) 
         else:
             flash('Invalid username, password, or role!', 'danger')
@@ -78,7 +91,13 @@ def dashboard():
     user_role = session.get('role')
     user_name = session.get('name')
     user_id = session.get('id')
+    
+    if session.get('require_face_registration'):
+        flash('Please register your facial data to continue.', 'warning')
+        return redirect(url_for('student.register_facial_data'))
+
     if user_role == 'student':
+        # This needs to be updated to check for facial data
         return redirect(url_for('student.student_dashboard'))
     elif user_role == 'faculty':
          # Assuming faculty dashboard is a template, not a route, but the code says 'faculty_dashboard.html'
@@ -87,6 +106,10 @@ def dashboard():
          pass
     
     return render_template(f'{user_role}_dashboard.html', user_name=user_name, user_id=user_id)
+
+@auth.route('/test-camera')
+def test_camera():
+    return render_template('test_camera.html')
 
 
 @auth.route('/logout')

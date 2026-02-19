@@ -32,6 +32,7 @@
             </tbody>
         </table>
     </div>
+    <div id="studentPagination" class="mt-3"></div>
 </div>
 
 <!-- Add Student Modal -->
@@ -71,16 +72,32 @@
                             </div>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label">Face Data</label>
-                            <div class="webcam-container" id="webcamContainer">
-                                <video id="video" autoplay playsinline></video>
-                                <button type="button" id="snap"
-                                    class="btn btn-primary d-block mx-auto mt-2 w-75">Capture Photo</button>
+                            <div class="form-check mb-3">
+                                <input class="form-check-input" type="checkbox" id="captureLater">
+                                <label class="form-check-label" for="captureLater">
+                                    Capture Face Later (Skip Webcam)
+                                </label>
                             </div>
-                            <div class="captured-photo-container" id="capturedPhotoContainer" style="display: none;">
-                                <img id="capturedImage" class="img-fluid mb-2" />
-                                <button type="button" id="retakePhoto" class="btn btn-secondary w-75">Retake
-                                    Photo</button>
+                            <div id="webcamSection">
+                                <label class="form-label">Face Data</label>
+                                <div class="webcam-container">
+                                    <video id="video" autoplay playsinline></video>
+                                    <canvas id="canvas" style="display:none;"></canvas>
+                                </div>
+                                <div class="text-center mb-3">
+                                    <button type="button" id="captureBtn" class="btn btn-primary">
+                                        <i class="fas fa-camera me-2"></i>Capture Photo
+                                    </button>
+                                    <button type="button" id="retakeBtn" class="btn btn-secondary"
+                                        style="display:none;">
+                                        <i class="fas fa-redo me-2"></i>Retake
+                                    </button>
+                                </div>
+                                <div class="captured-photo-container" style="display:none;">
+                                    <p class="text-success fw-bold"><i class="fas fa-check-circle me-1"></i>Photo
+                                        Captured</p>
+                                    <img id="photoPreview" src="" alt="Captured Photo" class="img-fluid mb-2">
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -136,9 +153,24 @@
 
 {% block scripts %}
 <script>
-    let photoBase64 = null;
+    let photoBase64 = null; // This will now be `capturedPhoto`
     let stream = null;
     const video = document.getElementById('video');
+    const canvas = document.getElementById('canvas');
+    const photoPreview = document.getElementById('photoPreview');
+    const webcamSection = document.getElementById('webcamSection');
+    const captureBtn = document.getElementById('captureBtn');
+    const retakeBtn = document.getElementById('retakeBtn');
+    const capturedPhotoContainer = document.querySelector('#webcamSection .captured-photo-container');
+
+    let capturedPhoto = null; // New variable for captured photo data
+
+    const studentPaginator = new TablePaginator({
+        tbodyId: 'studentTableBody',
+        paginationContainerId: 'studentPagination',
+        rowsPerPage: 10,
+        searchInputId: 'searchStudent'
+    });
 
     // --- Initial Fetching ---
     document.addEventListener('DOMContentLoaded', () => {
@@ -201,6 +233,7 @@
                         `;
                         tbody.innerHTML += row;
                     });
+                    studentPaginator.init();
                 } else {
                     tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">No students found</td></tr>';
                 }
@@ -211,22 +244,22 @@
             });
     }
 
-    // --- Search ---
-    document.getElementById('searchStudent').addEventListener('input', function () {
-        const value = this.value.toLowerCase();
-        const rows = document.querySelectorAll('#studentTableBody tr');
-        rows.forEach(row => {
-            const text = row.innerText.toLowerCase();
-            row.style.display = text.includes(value) ? '' : 'none';
-        });
-    });
-
     // --- Webcam Logic for Add Modal ---
     const addModal = document.getElementById('addStudentModal');
     addModal.addEventListener('shown.bs.modal', startWebcam);
     addModal.addEventListener('hidden.bs.modal', stopWebcam);
 
     function startWebcam() {
+        // Reset form and webcam state
+        document.getElementById('addStudentForm').reset();
+        document.getElementById('captureLater').checked = false;
+        webcamSection.style.display = 'block';
+        capturedPhoto = null;
+        video.style.display = 'block';
+        capturedPhotoContainer.style.display = 'none';
+        captureBtn.style.display = 'inline-block';
+        retakeBtn.style.display = 'none';
+
         navigator.mediaDevices.getUserMedia({ video: true })
             .then(s => {
                 stream = s;
@@ -236,12 +269,6 @@
                 console.error("Webcam error:", err);
                 alert("Could not access webcam.");
             });
-
-        // Reset inputs
-        photoBase64 = null;
-        document.getElementById('webcamContainer').style.display = 'block';
-        document.getElementById('capturedPhotoContainer').style.display = 'none';
-        document.getElementById('addStudentForm').reset();
     }
 
     function stopWebcam() {
@@ -251,62 +278,94 @@
         }
     }
 
-    document.getElementById('snap').addEventListener('click', () => {
-        const canvas = document.createElement('canvas');
+    captureBtn.addEventListener('click', () => {
         canvas.width = video.videoWidth;
         canvas.height = video.videoHeight;
-        canvas.getContext('2d').drawImage(video, 0, 0);
-        photoBase64 = canvas.toDataURL('image/jpeg');
+        canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+        capturedPhoto = canvas.toDataURL('image/jpeg');
 
-        document.getElementById('capturedImage').src = photoBase64;
-        document.getElementById('webcamContainer').style.display = 'none';
-        document.getElementById('capturedPhotoContainer').style.display = 'block';
+        photoPreview.src = capturedPhoto;
+        video.style.display = 'none';
+        capturedPhotoContainer.style.display = 'block';
+        captureBtn.style.display = 'none';
+        retakeBtn.style.display = 'inline-block';
     });
 
-    document.getElementById('retakePhoto').addEventListener('click', () => {
-        photoBase64 = null;
-        document.getElementById('webcamContainer').style.display = 'block';
-        document.getElementById('capturedPhotoContainer').style.display = 'none';
+    retakeBtn.addEventListener('click', () => {
+        capturedPhoto = null;
+        video.style.display = 'block';
+        capturedPhotoContainer.style.display = 'none';
+        captureBtn.style.display = 'inline-block';
+        retakeBtn.style.display = 'none';
     });
 
 
     // --- Add Student ---
     function submitAddStudent() {
-        if (!photoBase64) {
-            alert("Please capture a photo first!");
-            return;
-        }
+        const fullName = document.getElementById('fullName').value;
+        const rollNumber = document.getElementById('rollNumber').value;
+        const sectionName = document.getElementById('sectionName').value;
+        const email = document.getElementById('email').value;
+        const password = document.getElementById('password').value; // Keep password field
+        const captureLater = document.getElementById('captureLater').checked;
 
-        const data = {
-            fullName: document.getElementById('fullName').value,
-            rollNumber: document.getElementById('rollNumber').value,
-            email: document.getElementById('email').value,
-            password: document.getElementById('password').value,
-            sectionName: document.getElementById('sectionName').value,
-            photo: photoBase64
-        };
-
-        if (!data.fullName || !data.rollNumber || !data.email || !data.password || !data.sectionName) {
+        if (!fullName || !rollNumber || !sectionName || !email || !password) {
             alert("Please fill all fields.");
             return;
         }
 
+        let photoData = null;
+        if (!captureLater) {
+            if (!capturedPhoto) {
+                alert("Please capture a photo first.");
+                return;
+            }
+            photoData = capturedPhoto;
+        }
+
+        const data = {
+            fullName: fullName,
+            rollNumber: rollNumber,
+            email: email,
+            password: password,
+            sectionName: sectionName,
+            photo: photoData,
+            skip_photo: captureLater
+        };
+
         fetch('/add-student', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data)
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(data),
         })
-            .then(res => res.json())
-            .then(res => {
-                if (res.success) {
-                    alert("Student added!");
-                    bootstrap.Modal.getInstance(addModal).hide();
-                    fetchStudents();
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Student added successfully!');
+                    bootstrap.Modal.getInstance(addModal).hide(); // Close modal
+                    fetchStudents(); // Refresh student list
                 } else {
-                    alert(res.message);
+                    alert('Error: ' + data.message);
                 }
+            })
+            .catch((error) => {
+                console.error('Error:', error);
+                alert('An error occurred while adding the student.');
             });
     }
+
+    // Toggle Webcam Section based on Checkbox
+    document.getElementById('captureLater').addEventListener('change', function () {
+        if (this.checked) {
+            webcamSection.style.display = 'none';
+            stopWebcam(); // Stop webcam if skipping
+        } else {
+            webcamSection.style.display = 'block';
+            startWebcam(); // Restart webcam if not skipping
+        }
+    });
 
     // --- Edit Student ---
     const editModal = new bootstrap.Modal(document.getElementById('editStudentModal'));

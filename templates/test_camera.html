@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Camera Test</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            text-align: center;
+            padding: 20px;
+        }
+
+        video {
+            background: #000;
+            width: 640px;
+            height: 480px;
+        }
+
+        .success {
+            color: green;
+            font-weight: bold;
+        }
+
+        .error {
+            color: red;
+            font-weight: bold;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Camera Access Test</h1>
+    <video id="video" autoplay playsinline></video>
+    <p id="status">Requesting access...</p>
+    <button onclick="startCamera()">Retry Camera</button>
+
+    <script>
+        const video = document.getElementById('video');
+        const status = document.getElementById('status');
+
+        async function startCamera() {
+            status.textContent = "Requesting access...";
+            status.className = "";
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                video.srcObject = stream;
+                status.textContent = "Success: Camera is working!";
+                status.className = "success";
+            } catch (err) {
+                console.error(err);
+                status.textContent = "Error: " + err.name + " - " + err.message;
+                status.className = "error";
+            }
+        }
+
+        startCamera();
+    </script>
+</body>
+
+</html>

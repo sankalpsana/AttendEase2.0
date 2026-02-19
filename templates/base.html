@@ -84,8 +84,49 @@
         </div>
     </div>
 
+    <!-- Toast Container for Real-Time Notifications -->
+    <div class="toast-container position-fixed bottom-0 end-0 p-3" id="toast-container"></div>
+
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- SocketIO Client -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.4/socket.io.min.js"></script>
+    <script>
+        // Global SocketIO connection
+        const socket = io();
+
+        socket.on('connect', () => {
+            console.log('SocketIO connected');
+        });
+
+        // Global helper to show toast notifications
+        function showToast(title, message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const iconMap = {
+                'success': 'fas fa-check-circle text-success',
+                'info': 'fas fa-info-circle text-info',
+                'warning': 'fas fa-exclamation-triangle text-warning',
+                'danger': 'fas fa-times-circle text-danger'
+            };
+            const toastHTML = `
+                <div class="toast show" role="alert" aria-live="assertive" aria-atomic="true" data-bs-autohide="true" data-bs-delay="5000">
+                    <div class="toast-header">
+                        <i class="${iconMap[type] || iconMap.info} me-2"></i>
+                        <strong class="me-auto">${title}</strong>
+                        <small>Just now</small>
+                        <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+                    </div>
+                    <div class="toast-body">${message}</div>
+                </div>`;
+            container.insertAdjacentHTML('beforeend', toastHTML);
+            const toastEl = container.lastElementChild;
+            const bsToast = new bootstrap.Toast(toastEl);
+            bsToast.show();
+            toastEl.addEventListener('hidden.bs.toast', () => toastEl.remove());
+        }
+    </script>
+    <!-- Pagination Utility -->
+    <script src="{{ url_for('static', filename='js/pagination.js') }}"></script>
     {% block scripts %}{% endblock %}
 </body>
 

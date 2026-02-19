@@ -1,6 +1,8 @@
 from flask import Blueprint, render_template, request, jsonify, session
 from flask_login import login_required
 from app.db import get_db_connection
+from app.decorators import faculty_required
+from app.events import emit_attendance_update
 
 faculty = Blueprint('faculty', __name__)
 
@@ -38,9 +40,8 @@ def fetch_faculty_classes():
 
 @faculty.route('/analytics-dashboard')
 @login_required
+@faculty_required
 def analytics_dashboard():
-    if session.get('role') != 'faculty':
-        return jsonify({'success': False, 'message': 'Unauthorized access!'}), 403
     return render_template('faculty_analytics_dashboard.html', user_name=session.get('name'))
 
 
@@ -105,6 +106,16 @@ def submit_attendance():
         """, (faculty_id, subject_id, section_name))
 
         conn.commit()
+        
+        # Emit real-time update
+        emit_attendance_update({
+            'faculty_id': faculty_id,
+            'subject_id': subject_id,
+            'section_name': section_name,
+            'present_count': len(present_students),
+            'absent_count': len(absent_students)
+        })
+
         return jsonify({'success': True})
     except Exception as err:
         return jsonify({'success': False, 'message': str(err)})
@@ -149,6 +160,9 @@ def faculty_attendance():
                 WHERE a.roll_number = %s AND a.subject_id = %s
             """, (student['roll_number'], subject_id))
             attendance_data = cursor.fetchone()
+            student['total_classes'] = attendance_data['total_classes']
+            student['present_classes'] = attendance_data['present_classes']
+
             if attendance_data['total_classes'] > 0:
                 student['attendance_percentage'] = round((attendance_data['present_classes'] / attendance_data['total_classes']) * 100, 2)
             else:
@@ -164,10 +178,12 @@ def faculty_attendance():
             student['attendance_records'] = cursor.fetchall()
 
         # Calculate overall attendance percentage
-        total_classes = sum(student.get('total_classes', 0) for student in students)
-        present_classes = sum(student.get('present_classes', 0) for student in students)
-        if total_classes > 0:
-            overall_attendance_percentage = round((present_classes / total_classes) * 100, 2)
+        # Calculate overall attendance percentage (Average of student percentages)
+        total_students = len(students)
+        sum_percentages = sum(student.get('attendance_percentage', 0) for student in students)
+
+        if total_students > 0:
+            overall_attendance_percentage = round(sum_percentages / total_students, 2)
         else:
             overall_attendance_percentage = 0
 

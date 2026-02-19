@@ -5,6 +5,56 @@
 {% block header %}Admin Dashboard{% endblock %}
 
 {% block content %}
+<!-- Live Stats Row -->
+<div class="row g-4 mb-4">
+    <div class="col-md-3">
+        <div class="content-card text-center h-100">
+            <div class="mb-2 text-primary"><i class="fas fa-user-graduate fa-2x"></i></div>
+            <h3 id="stat-students" class="fw-bold">--</h3>
+            <p class="text-muted mb-0">Total Students</p>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="content-card text-center h-100">
+            <div class="mb-2 text-success"><i class="fas fa-chalkboard-teacher fa-2x"></i></div>
+            <h3 id="stat-faculty" class="fw-bold">--</h3>
+            <p class="text-muted mb-0">Total Faculty</p>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="content-card text-center h-100">
+            <div class="mb-2 text-info"><i class="fas fa-clipboard-check fa-2x"></i></div>
+            <h3 id="stat-today-attendance" class="fw-bold">--</h3>
+            <p class="text-muted mb-0">Today's Records</p>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="content-card text-center h-100">
+            <div class="mb-2 text-warning"><i class="fas fa-percentage fa-2x"></i></div>
+            <h3 id="stat-today-percentage" class="fw-bold">--%</h3>
+            <p class="text-muted mb-0">Today's Attendance</p>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Activity Feed -->
+<div class="row g-4 mb-4">
+    <div class="col-12">
+        <div class="content-card">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h5 class="mb-0"><i class="fas fa-bolt text-warning me-2"></i>Live Activity Feed</h5>
+                <span class="badge bg-success" id="live-indicator"><i class="fas fa-circle me-1"
+                        style="font-size:8px"></i>Live</span>
+            </div>
+            <div id="activity-feed" style="max-height:200px; overflow-y:auto;">
+                <p class="text-muted text-center" id="no-activity">No recent activity. Attendance updates will appear
+                    here in real-time.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Management Cards -->
 <div class="row g-4">
     <!-- Users Card -->
     <div class="col-md-4">
@@ -71,5 +121,91 @@
         transform: translateY(-5px);
         background: rgba(255, 255, 255, 1) !important;
     }
+
+    .activity-item {
+        padding: 8px 12px;
+        border-left: 3px solid #198754;
+        background: rgba(25, 135, 84, 0.05);
+        margin-bottom: 8px;
+        border-radius: 0 6px 6px 0;
+        animation: slideIn 0.3s ease;
+    }
+
+    @keyframes slideIn {
+        from {
+            opacity: 0;
+            transform: translateX(-20px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateX(0);
+        }
+    }
+
+    #live-indicator {
+        animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+
+        0%,
+        100% {
+            opacity: 1;
+        }
+
+        50% {
+            opacity: 0.5;
+        }
+    }
 </style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Load initial stats
+    function loadStats() {
+        fetch('/admin/api/dashboard-stats')
+            .then(r => r.json())
+            .then(data => {
+                document.getElementById('stat-students').textContent = data.total_students || 0;
+                document.getElementById('stat-faculty').textContent = data.total_faculty || 0;
+                document.getElementById('stat-today-attendance').textContent = data.today_records || 0;
+                const pct = data.today_percentage != null ? data.today_percentage + '%' : '0%';
+                document.getElementById('stat-today-percentage').textContent = pct;
+            })
+            .catch(() => {
+                console.log('Could not load stats');
+            });
+    }
+
+    loadStats();
+
+    // Listen for real-time attendance updates
+    socket.on('attendance_update', function (data) {
+        // Refresh stats
+        loadStats();
+
+        // Add to activity feed
+        const feed = document.getElementById('activity-feed');
+        const noActivity = document.getElementById('no-activity');
+        if (noActivity) noActivity.remove();
+
+        const time = new Date().toLocaleTimeString();
+        const item = document.createElement('div');
+        item.className = 'activity-item';
+        item.innerHTML = `
+            <small class="text-muted float-end">${time}</small>
+            <strong>Attendance Marked</strong><br>
+            <small>Section ${data.section_name || '?'} — ${data.present_count || 0} present, ${data.absent_count || 0} absent</small>
+        `;
+        feed.prepend(item);
+
+        // Show toast
+        showToast('Attendance Update',
+            `Section ${data.section_name}: ${data.present_count} present, ${data.absent_count} absent`,
+            'success'
+        );
+    });
+</script>
 {% endblock %}

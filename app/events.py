@@ -62,3 +62,10 @@ def handle_frame(data):
         })
         
     emit('frame_processed', {'success': True, 'faces': faces_info})
+
+def emit_attendance_update(data):
+    """
+    Emits an 'attendance_update' event to all connected clients.
+    Data should contain relevant info like section_name, subject_id, etc.
+    """
+    socketio.emit('attendance_update', data)

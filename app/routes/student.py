@@ -1,6 +1,7 @@
 from flask import Blueprint, render_template, request, jsonify, session
 from flask_login import login_required
 from app.db import get_db_connection
+from app.decorators import student_required
 import cv2
 import numpy as np
 import base64
@@ -12,9 +13,12 @@ student = Blueprint('student', __name__)
 
 @student.route('/student-dashboard')
 @login_required
+@student_required
+@student_required
 def student_dashboard():
-    if session.get('role') != 'student':
-        return jsonify({'success': False, 'message': 'Unauthorized access!'}), 403
+    # Enforce facial registration
+    if session.get('require_face_registration'):
+        return redirect(url_for('student.register_facial_data'))
 
     student_id = session.get('id')
     conn = get_db_connection()
@@ -113,6 +117,9 @@ def register_facial_data():
 
         # Invalidate all cache since we don't know the section easily
         clear_cache()
+
+        # Update session to indicate registration is complete
+        session['require_face_registration'] = False
 
         return jsonify({'success': True, 'message': 'Facial data registered successfully!'})
     except Exception as e:

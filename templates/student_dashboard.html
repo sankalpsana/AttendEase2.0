@@ -41,7 +41,7 @@
                             <td>
                                 <div class="progress" style="height: 20px;">
                                     <div class="progress-bar {% if class.attendance_percentage < 75 %}bg-danger{% else %}bg-success{% endif %}"
-                                        role="progressbar" style="width: {{ class.attendance_percentage }}%;"
+                                        role="progressbar" data-width="{{ class.attendance_percentage }}"
                                         aria-valuenow="{{ class.attendance_percentage }}" aria-valuemin="0"
                                         aria-valuemax="100">
                                         {{ class.attendance_percentage }}%
@@ -111,6 +111,9 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
     // Pie Chart for Attendance Summary
+    var present = Number("{{ present_percentage|default(0) }}");
+    var absent = Number("{{ absent_percentage|default(0) }}");
+
     var ctx = document.getElementById('attendanceChart').getContext('2d');
     var attendanceChart = new Chart(ctx, {
         type: 'doughnut',
@@ -118,30 +121,37 @@
             labels: ['Present', 'Absent'],
             datasets: [{
                 label: 'Attendance',
-                data: [{{ present_percentage }}, {{ absent_percentage }}],
-        backgroundColor: [
-            '#38ef7d', // Success Green
-            '#ff6b6b'  // Danger Red
-        ],
-        borderWidth: 0,
-        hoverOffset: 4
-    }]
+                data: [present, absent],
+                backgroundColor: [
+                    '#38ef7d', // Success Green
+                    '#ff6b6b'  // Danger Red
+                ],
+                borderWidth: 0,
+                hoverOffset: 4
+            }]
         },
-    options: {
-        responsive: true,
+        options: {
+            responsive: true,
             maintainAspectRatio: false,
-                plugins: {
-            legend: {
-                position: 'bottom',
+            plugins: {
+                legend: {
+                    position: 'bottom',
                     labels: {
-                    font: {
-                        family: "'Segoe UI', sans-serif",
+                        font: {
+                            family: "'Segoe UI', sans-serif",
                             size: 14
+                        }
                     }
                 }
             }
         }
-    }
+    });
+
+    // Apply progress bar widths dynamically
+    document.querySelectorAll('.progress-bar').forEach(bar => {
+        if (bar.dataset.width) {
+            bar.style.width = bar.dataset.width + '%';
+        }
     });
 </script>
 {% endblock %}

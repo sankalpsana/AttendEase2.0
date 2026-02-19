@@ -1,6 +1,7 @@
 from flask import Blueprint, render_template, request, jsonify, flash, redirect, url_for, session
 from flask_login import login_required, current_user
 from app.db import get_db_connection
+from app.decorators import admin_required
 from app.forms import CreateSectionForm
 from werkzeug.security import generate_password_hash
 import re
@@ -20,9 +21,9 @@ UPLOAD_FOLDER = 'Faces' # Should be in config or consistent path. Ideally app/st
 # Assuming root run context, 'Faces' is fine.
 
 @admin.route('/manage-faculty', methods=['GET', 'POST'])
+@login_required
+@admin_required
 def manage_faculty():
-    if session.get('role') != 'admin':
-        return jsonify({'success': False, 'message': 'Unauthorized access!'}), 403
     conn = get_db_connection()
     cursor = conn.cursor()
     try:
@@ -427,72 +428,63 @@ def add_student():
         password = data['password']
         hashed_password = generate_password_hash(password)
         section_name = data['sectionName']
-        photo_base64 = data['photo']
+        photo_base64 = data.get('photo')
+        skip_photo = data.get('skip_photo', False)
 
         # Sanitize roll number for filename usage
         safe_roll_number = "".join([c for c in roll_number if c.isalnum() or c in ('-', '_')])
         if not safe_roll_number:
             safe_roll_number = "unknown_student"
 
-        photo_base64 = photo_base64.split(",")[1]
-        photo_bytes = base64.b64decode(photo_base64)  # Decode only once
+        encoding_blob = None
+        if not skip_photo and photo_base64:
+            photo_base64 = photo_base64.split(",")[1]
+            photo_bytes = base64.b64decode(photo_base64)  # Decode only once
 
-        image_path = None
-        cropped_image_path = None
-        
-        # Ensure UPLOAD_FOLDER exists
-        if not os.path.exists(UPLOAD_FOLDER):
-            os.makedirs(UPLOAD_FOLDER)
+            image_path = None
+            cropped_image_path = None
+            
+            # Ensure UPLOAD_FOLDER exists
+            if not os.path.exists(UPLOAD_FOLDER):
+                os.makedirs(UPLOAD_FOLDER)
 
-        try:  # Image processing try block
-            image = Image.open(BytesIO(photo_bytes))
-            image = np.array(image)
-            image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB) # Convert RGB (PIL) to BGR (OpenCV)
+            try:  # Image processing try block
+                image = Image.open(BytesIO(photo_bytes))
+                image = np.array(image)
+                image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB) # Convert RGB (PIL) to BGR (OpenCV)
 
-            image_filename = f"{safe_roll_number}.jpg"
-            image_path = os.path.join(UPLOAD_FOLDER, image_filename)
-            cv2.imwrite(image_path, image)  # Save the original image
+                image_filename = f"{safe_roll_number}.jpg"
+                image_path = os.path.join(UPLOAD_FOLDER, image_filename)
+                cv2.imwrite(image_path, image)  # Save the original image
 
-            gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)  # Use gray for face detection
-            faces = face_recognition.face_locations(gray)  
+                gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)  # Use gray for face detection
+                faces = face_recognition.face_locations(gray)  
 
-            if len(faces) > 0:
-                (top, right, bottom, left) = faces[0]  # Get face coordinates
-                face_image = image[top:bottom, left:right]  # Correct slicing order
+                if len(faces) > 0:
+                    (top, right, bottom, left) = faces[0]  # Get face coordinates
+                    face_image = image[top:bottom, left:right]  # Correct slicing order
 
-                crop_file_name = f"{safe_roll_number}_face.jpg"
-                cropped_image_path = os.path.join(UPLOAD_FOLDER, crop_file_name)
-                cv2.imwrite(cropped_image_path, face_image)
+                    crop_file_name = f"{safe_roll_number}_face.jpg"
+                    cropped_image_path = os.path.join(UPLOAD_FOLDER, crop_file_name)
+                    cv2.imwrite(cropped_image_path, face_image)
 
-                # Use the in-memory face_image directly
-                img_rgb = cv2.cvtColor(face_image, cv2.COLOR_BGR2RGB)
+                    # Use the in-memory face_image directly
+                    img_rgb = cv2.cvtColor(face_image, cv2.COLOR_BGR2RGB)
 
-                try:
-                    encodings = face_recognition.face_encodings(img_rgb)
-                    encodings = np.array(encodings, dtype=np.float64)
-                    if len(encodings) > 0:
-                        encode = encodings[0]
-                        encoding_blob = pickle.dumps(encode)
-                    else:
+                    try:
+                        encodings = face_recognition.face_encodings(img_rgb)
+                        encodings = np.array(encodings, dtype=np.float64)
+                        if len(encodings) > 0:
+                            encode = encodings[0]
+                            encoding_blob = pickle.dumps(encode)
+                        else:
+                            if image_path and os.path.exists(image_path): os.remove(image_path)
+                            if cropped_image_path and os.path.exists(cropped_image_path): os.remove(cropped_image_path)
+                            return jsonify({"success": False, "message": "No face detected in cropped image."}), 400
+                    except Exception as e:
+                        print(f"Error encoding face: {e}")
                         if image_path and os.path.exists(image_path): os.remove(image_path)
                         if cropped_image_path and os.path.exists(cropped_image_path): os.remove(cropped_image_path)
-                        return jsonify({"success": False, "message": "No face detected in cropped image."}), 400
-                except Exception as e:
-                    print(f"Encoding Error: {e}")
-                    if image_path and os.path.exists(image_path): os.remove(image_path)
-                    if cropped_image_path and os.path.exists(cropped_image_path): os.remove(cropped_image_path)
-                    return jsonify({"success": False, "message": "Error encoding face."}), 500
-
-                if image_path and os.path.exists(image_path): os.remove(image_path) 
-
-            else:
-                if image_path and os.path.exists(image_path): os.remove(image_path)
-                return jsonify({"success": False, "message": "No face detected in the uploaded image."}), 400
-
-        except (FileNotFoundError, OSError, IOError, Exception) as e: 
-            print(f"Image Error: {e}")
-            try:
-                if image_path and os.path.exists(image_path): os.remove(image_path)
             except:
                 pass
             return jsonify({"success": False, "message": f"Error processing image: {str(e)}"}), 400
@@ -621,6 +613,41 @@ def remove_subject():
         return jsonify({'success': True})
     except Exception as err:
         return jsonify({'success': False, 'message': str(err)})
+    finally:
+        cursor.close()
+        conn.close()
+
+@admin.route('/api/dashboard-stats')
+@login_required
+def dashboard_stats():
+    """Returns live stats for the admin dashboard."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("SELECT COUNT(*) AS count FROM students")
+        total_students = cursor.fetchone()['count']
+
+        cursor.execute("SELECT COUNT(*) AS count FROM faculty")
+        total_faculty = cursor.fetchone()['count']
+
+        cursor.execute("SELECT COUNT(*) AS count FROM attendance WHERE date = CURRENT_DATE")
+        today_records = cursor.fetchone()['count']
+
+        cursor.execute("""
+            SELECT AVG(CASE WHEN status = 'Present' THEN 100 ELSE 0 END) AS pct
+            FROM attendance WHERE date = CURRENT_DATE
+        """)
+        row = cursor.fetchone()
+        today_percentage = round(float(row['pct']), 1) if row and row['pct'] is not None else 0
+
+        return jsonify({
+            'total_students': total_students,
+            'total_faculty': total_faculty,
+            'today_records': today_records,
+            'today_percentage': today_percentage
+        })
+    except Exception as err:
+        return jsonify({'error': str(err)}), 500
     finally:
         cursor.close()
         conn.close()

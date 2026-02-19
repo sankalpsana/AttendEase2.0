@@ -169,6 +169,10 @@ dmypy.json
 # Cython debug symbols
 cython_debug/
 
+generate_dummy_data.py
+update_faculty_credentials.py
+verify_supabase_data.py
+
 # PyCharm
 #  JetBrains specific template is maintained in a separate JetBrains.gitignore that can
 #  be found at https://github.com/github/gitignore/blob/main/Global/JetBrains.gitignore

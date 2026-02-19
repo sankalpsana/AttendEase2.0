@@ -30,6 +30,7 @@
             </tbody>
         </table>
     </div>
+    <div id="subjectPagination" class="mt-3"></div>
 </div>
 
 <!-- Add Subject Modal -->
@@ -59,6 +60,13 @@
 
 {% block scripts %}
 <script>
+    const subjectPaginator = new TablePaginator({
+        tbodyId: 'subjectTableBody',
+        paginationContainerId: 'subjectPagination',
+        rowsPerPage: 10,
+        searchInputId: 'searchSubject'
+    });
+
     document.addEventListener('DOMContentLoaded', fetchSubjects);
 
     function fetchSubjects() {
@@ -84,6 +92,7 @@
                         `;
                         tbody.innerHTML += row;
                     });
+                    subjectPaginator.init();
                 } else {
                     tbody.innerHTML = '<tr><td colspan="3" class="text-center text-muted">No subjects found</td></tr>';
                 }
@@ -93,16 +102,6 @@
                 tbody.innerHTML = '<tr><td colspan="3" class="text-center text-danger">Error fetching subjects</td></tr>';
             });
     }
-
-    // --- Search ---
-    document.getElementById('searchSubject').addEventListener('input', function () {
-        const value = this.value.toLowerCase();
-        const rows = document.querySelectorAll('#subjectTableBody tr');
-        rows.forEach(row => {
-            const text = row.innerText.toLowerCase();
-            row.style.display = text.includes(value) ? '' : 'none';
-        });
-    });
 
     // --- Add Subject ---
     const addModal = new bootstrap.Modal(document.getElementById('addSubjectModal'));

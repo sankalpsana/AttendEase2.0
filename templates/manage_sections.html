@@ -43,6 +43,7 @@
             </tbody>
         </table>
     </div>
+    <div id="sectionPagination" class="mt-3"></div>
 </div>
 
 <!-- Add Section Modal -->
@@ -127,15 +128,13 @@
 
 {% block scripts %}
 <script>
-    // --- Search ---
-    document.getElementById('searchSection').addEventListener('input', function () {
-        const value = this.value.toLowerCase();
-        const rows = document.querySelectorAll('#sectionTableBody tr');
-        rows.forEach(row => {
-            const text = row.innerText.toLowerCase();
-            row.style.display = text.includes(value) ? '' : 'none';
-        });
+    const sectionPaginator = new TablePaginator({
+        tbodyId: 'sectionTableBody',
+        paginationContainerId: 'sectionPagination',
+        rowsPerPage: 10,
+        searchInputId: 'searchSection'
     });
+    document.addEventListener('DOMContentLoaded', () => sectionPaginator.init());
 
     // --- Add Section ---
     const addModal = new bootstrap.Modal(document.getElementById('addSectionModal'));

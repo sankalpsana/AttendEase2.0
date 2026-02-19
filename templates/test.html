@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -28,6 +29,7 @@
                 opacity: 0;
                 transform: translateY(-20px);
             }
+
             to {
                 opacity: 1;
                 transform: translateY(0);
@@ -135,93 +137,95 @@
         .card .btn {
             margin-right: 0.5rem;
         }
-            .no-data {
-        width: 100%;
-        text-align: center;
-        color: #666;
-        font-style: italic;
-        padding: 1rem;
-        background: rgba(255, 255, 255, 0.8);
-        border-radius: 10px;
-        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-        margin: 1rem 0;
-    }
+
+        .no-data {
+            width: 100%;
+            text-align: center;
+            color: #666;
+            font-style: italic;
+            padding: 1rem;
+            background: rgba(255, 255, 255, 0.8);
+            border-radius: 10px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            margin: 1rem 0;
+        }
     </style>
 </head>
+
 <body>
-<div class="dashboard-wrapper">
-    <!-- Sidebar -->
-    <div class="sidebar">
-        <h3>Faculty Dashboard</h3>
-        <ul>
-            <li><a href="/dashboard"><i class="fas fa-dashboard"></i> Dashboard</a></li>
-            <li><a href="/dashboard"><i class="fas fa-bar-chart"></i> Analytics</a></li>
-            <li><a href="/logout"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
-        </ul>
-    </div>
-
-    <!-- Main Content -->
-    <div class="main-content">
-        <!-- Header -->
-        <div class="header">
-            <h1>My Classes</h1>
-            <div class="user-info">
-                <img src="profile_user.svg" alt="User">
-                <span>{{ user_name }}</span>
-            </div>
+    <div class="dashboard-wrapper">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <h3>Faculty Dashboard</h3>
+            <ul>
+                <li><a href="/dashboard"><i class="fas fa-dashboard"></i> Dashboard</a></li>
+                <li><a href="/dashboard"><i class="fas fa-bar-chart"></i> Analytics</a></li>
+                <li><a href="/logout"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
+            </ul>
         </div>
 
-        <!-- Cards for Classes -->
-        <div class="row" id="classesContainer">
-            <!-- Classes will be dynamically populated here -->
-        </div>
-
-        <!-- Substitute Section -->
-        <div class="substitute-section">
-            <h2>Assign Substitute Faculty</h2>
-            <div class="row" id="assignSubstituteContainer">
-                <!-- Substitute assignment form will be dynamically populated here -->
-            </div>
-
-
-        </div>
-        <!-- Substitute Section -->
-        <div class="substitute-section">
-            <h2>Substitute Assignments</h2>
-            <div class="row" id="substituteAssignmentsContainer">
-                <!-- Substitute assignments will be dynamically populated here -->
-                <div class="no-data">
-                    <p>No substitute classes assigned.</p>
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Header -->
+            <div class="header">
+                <h1>My Classes</h1>
+                <div class="user-info">
+                    <img src="{{ url_for('static', filename='profile_user.svg') }}" alt="User">
+                    <span>{{ user_name }}</span>
                 </div>
             </div>
-            <h2>Substitute Classes</h2>
-            <div class="row" id="substituteClassesContainer">
-                <!-- Substitute classes will be dynamically populated here -->
-                <div class="no-data">
-                    <p>No substitute classes assigned.</p>
+
+            <!-- Cards for Classes -->
+            <div class="row" id="classesContainer">
+                <!-- Classes will be dynamically populated here -->
+            </div>
+
+            <!-- Substitute Section -->
+            <div class="substitute-section">
+                <h2>Assign Substitute Faculty</h2>
+                <div class="row" id="assignSubstituteContainer">
+                    <!-- Substitute assignment form will be dynamically populated here -->
+                </div>
+
+
+            </div>
+            <!-- Substitute Section -->
+            <div class="substitute-section">
+                <h2>Substitute Assignments</h2>
+                <div class="row" id="substituteAssignmentsContainer">
+                    <!-- Substitute assignments will be dynamically populated here -->
+                    <div class="no-data">
+                        <p>No substitute classes assigned.</p>
+                    </div>
+                </div>
+                <h2>Substitute Classes</h2>
+                <div class="row" id="substituteClassesContainer">
+                    <!-- Substitute classes will be dynamically populated here -->
+                    <div class="no-data">
+                        <p>No substitute classes assigned.</p>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
-</div>
 
-<!-- Bootstrap JS (Optional for animations) -->
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
-<!-- JavaScript to Fetch and Display Classes and Substitute Assignments -->
-<script>
-    document.addEventListener('DOMContentLoaded', function () {
-        const facultyId = "{{ user_id }}"; // Logged-in faculty ID
+    <!-- Bootstrap JS (Optional for animations) -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- JavaScript to Fetch and Display Classes and Substitute Assignments -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const facultyId = "{{ user_id }}"; // Logged-in faculty ID
 
-        // Fetch the faculty's assigned classes
-        fetch('/fetch-faculty-classes')
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    const classesContainer = document.getElementById('classesContainer');
-                    classesContainer.innerHTML = ''; // Clear existing content
+            // Fetch the faculty's assigned classes
+            fetch('/fetch-faculty-classes')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const classesContainer = document.getElementById('classesContainer');
+                        classesContainer.innerHTML = ''; // Clear existing content
 
-                    data.classes.forEach(cls => {
-                        const card = `
+                        data.classes.forEach(cls => {
+                            const card = `
                             <div class="col-md-4">
                                 <div class="card">
                                     <h5>${cls.subject_name} - ${cls.section_name}</h5>
@@ -230,31 +234,31 @@
                                 </div>
                             </div>
                         `;
-                        classesContainer.insertAdjacentHTML('beforeend', card);
-                    });
-                } else {
-                    alert('Error fetching classes: ' + data.message);
-                }
-            });
+                            classesContainer.insertAdjacentHTML('beforeend', card);
+                        });
+                    } else {
+                        alert('Error fetching classes: ' + data.message);
+                    }
+                });
 
-        // Fetch faculty for substitute assignment
-        fetch('/fetch-faculty')
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    const facultySelect = document.createElement('select');
-                    facultySelect.id = 'substituteFacultySelect';
-                    facultySelect.className = 'form-control';
-                    facultySelect.innerHTML = '<option value="">Select Substitute Faculty</option>';
-                    data.faculty.forEach(faculty => {
-                        if (faculty.faculty_id !== facultyId) { // Exclude the logged-in faculty
-                            facultySelect.innerHTML += `<option value="${faculty.faculty_id}">${faculty.name}</option>`;
-                        }
-                    });
+            // Fetch faculty for substitute assignment
+            fetch('/fetch-faculty')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const facultySelect = document.createElement('select');
+                        facultySelect.id = 'substituteFacultySelect';
+                        facultySelect.className = 'form-control';
+                        facultySelect.innerHTML = '<option value="">Select Substitute Faculty</option>';
+                        data.faculty.forEach(faculty => {
+                            if (faculty.faculty_id !== facultyId) { // Exclude the logged-in faculty
+                                facultySelect.innerHTML += `<option value="${faculty.faculty_id}">${faculty.name}</option>`;
+                            }
+                        });
 
-                    // Populate the substitute assignment form
-                    const assignSubstituteContainer = document.getElementById('assignSubstituteContainer');
-                    assignSubstituteContainer.innerHTML = `
+                        // Populate the substitute assignment form
+                        const assignSubstituteContainer = document.getElementById('assignSubstituteContainer');
+                        assignSubstituteContainer.innerHTML = `
                         <div class="col-md-12">
                             <div class="card">
                                 <h5>Assign Substitute</h5>
@@ -279,62 +283,62 @@
                         </div>
                     `;
 
-                    // Populate the class dropdown
-                    fetch('/fetch-faculty-classes')
-                        .then(response => response.json())
-                        .then(data => {
-                            if (data.success) {
-                                const classSelect = document.getElementById('classSelect');
-                                data.classes.forEach(cls => {
-                                    classSelect.innerHTML += `<option value="${cls.subject_id}-${cls.section_name}">${cls.subject_name} - ${cls.section_name}</option>`;
-                                });
-                            }
-                        });
-
-                    // Handle form submission
-                    document.getElementById('assignSubstituteForm').addEventListener('submit', function (e) {
-                        e.preventDefault();
-
-                        const classValue = document.getElementById('classSelect').value;
-                        const [subjectId, sectionName] = classValue.split('-');
-                        const substituteFacultyId = document.getElementById('substituteFacultySelect').value;
-                        const date = document.getElementById('dateInput').value;
-
-                        fetch('/assign-substitute', {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                            },
-                            body: JSON.stringify({
-                                substitute_faculty_id: substituteFacultyId,
-                                subject_id: subjectId,
-                                section_name: sectionName,
-                                date: date,
-                            }),
-                        })
+                        // Populate the class dropdown
+                        fetch('/fetch-faculty-classes')
                             .then(response => response.json())
                             .then(data => {
                                 if (data.success) {
-                                    alert('Substitute assigned successfully!');
-                                    location.reload(); // Refresh the page to update the list
-                                } else {
-                                    alert('Error: ' + data.message);
+                                    const classSelect = document.getElementById('classSelect');
+                                    data.classes.forEach(cls => {
+                                        classSelect.innerHTML += `<option value="${cls.subject_id}-${cls.section_name}">${cls.subject_name} - ${cls.section_name}</option>`;
+                                    });
                                 }
                             });
-                    });
-                }
-            });
 
-        // Fetch substitute assignments
-        fetch('/fetch-substitute-assignments')
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    const substituteAssignmentsContainer = document.getElementById('substituteAssignmentsContainer');
-                    substituteAssignmentsContainer.innerHTML = ''; // Clear existing content
+                        // Handle form submission
+                        document.getElementById('assignSubstituteForm').addEventListener('submit', function (e) {
+                            e.preventDefault();
 
-                    data.substitute_assignments.forEach(assignment => {
-                        const card = `
+                            const classValue = document.getElementById('classSelect').value;
+                            const [subjectId, sectionName] = classValue.split('-');
+                            const substituteFacultyId = document.getElementById('substituteFacultySelect').value;
+                            const date = document.getElementById('dateInput').value;
+
+                            fetch('/assign-substitute', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                },
+                                body: JSON.stringify({
+                                    substitute_faculty_id: substituteFacultyId,
+                                    subject_id: subjectId,
+                                    section_name: sectionName,
+                                    date: date,
+                                }),
+                            })
+                                .then(response => response.json())
+                                .then(data => {
+                                    if (data.success) {
+                                        alert('Substitute assigned successfully!');
+                                        location.reload(); // Refresh the page to update the list
+                                    } else {
+                                        alert('Error: ' + data.message);
+                                    }
+                                });
+                        });
+                    }
+                });
+
+            // Fetch substitute assignments
+            fetch('/fetch-substitute-assignments')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const substituteAssignmentsContainer = document.getElementById('substituteAssignmentsContainer');
+                        substituteAssignmentsContainer.innerHTML = ''; // Clear existing content
+
+                        data.substitute_assignments.forEach(assignment => {
+                            const card = `
                             <div class="col-md-4">
                                 <div class="card substitute-card">
                                     <h5>${assignment.subject_name} - ${assignment.section_name}</h5>
@@ -343,26 +347,26 @@
                                 </div>
                             </div>
                         `;
-                        substituteAssignmentsContainer.insertAdjacentHTML('beforeend', card);
-                    });
-                } else {
-                    alert('Error fetching substitute assignments: ' + data.message);
-                }
-            });
-    });
-    document.addEventListener('DOMContentLoaded', function () {
-        const facultyId = "{{ user_id }}"; // Logged-in faculty ID
+                            substituteAssignmentsContainer.insertAdjacentHTML('beforeend', card);
+                        });
+                    } else {
+                        alert('Error fetching substitute assignments: ' + data.message);
+                    }
+                });
+        });
+        document.addEventListener('DOMContentLoaded', function () {
+            const facultyId = "{{ user_id }}"; // Logged-in faculty ID
 
-        // Fetch the faculty's assigned classes
-        fetch('/fetch-faculty-classes')
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    const classesContainer = document.getElementById('classesContainer');
-                    classesContainer.innerHTML = ''; // Clear existing content
+            // Fetch the faculty's assigned classes
+            fetch('/fetch-faculty-classes')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const classesContainer = document.getElementById('classesContainer');
+                        classesContainer.innerHTML = ''; // Clear existing content
 
-                    data.classes.forEach(cls => {
-                        const card = `
+                        data.classes.forEach(cls => {
+                            const card = `
                             <div class="col-md-4">
                                 <div class="card">
                                     <h5>${cls.subject_name} - ${cls.section_name}</h5>
@@ -371,23 +375,23 @@
                                 </div>
                             </div>
                         `;
-                        classesContainer.insertAdjacentHTML('beforeend', card);
-                    });
-                } else {
-                    alert('Error fetching classes: ' + data.message);
-                }
-            });
+                            classesContainer.insertAdjacentHTML('beforeend', card);
+                        });
+                    } else {
+                        alert('Error fetching classes: ' + data.message);
+                    }
+                });
 
-        // Fetch substitute classes for the logged-in substitute faculty
-        fetch('/fetch-substitute-classes-for-substitute')
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    const substituteClassesContainer = document.getElementById('substituteClassesContainer');
-                    substituteClassesContainer.innerHTML = ''; // Clear existing content
+            // Fetch substitute classes for the logged-in substitute faculty
+            fetch('/fetch-substitute-classes-for-substitute')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const substituteClassesContainer = document.getElementById('substituteClassesContainer');
+                        substituteClassesContainer.innerHTML = ''; // Clear existing content
 
-                    data.substitute_classes.forEach(cls => {
-                        const card = `
+                        data.substitute_classes.forEach(cls => {
+                            const card = `
                             <div class="col-md-4">
                                 <div class="card substitute-card">
                                     <h5>${cls.subject_name} - ${cls.section_name}</h5>
@@ -397,12 +401,12 @@
                                 </div>
                             </div>
                         `;
-                        substituteClassesContainer.insertAdjacentHTML('beforeend', card);
-                    });
-                } else {
-                    alert('Error fetching substitute classes: ' + data.message);
-                }
-            });
-    });
-</script>
+                            substituteClassesContainer.insertAdjacentHTML('beforeend', card);
+                        });
+                    } else {
+                        alert('Error fetching substitute classes: ' + data.message);
+                    }
+                });
+        });
+    </script>
 </body>
