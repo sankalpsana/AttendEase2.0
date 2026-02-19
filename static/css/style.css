@@ -21,6 +21,31 @@ body {
     height: 100%;
     overflow-y: auto;
     z-index: 1000;
+    transition: all 0.3s ease;
+}
+
+.sidebar.collapsed {
+    width: 0;
+    padding: 0;
+    overflow: hidden;
+}
+
+.sidebar.collapsed h3 {
+    display: none;
+}
+
+.sidebar.collapsed ul li a {
+    padding: 12px;
+    text-align: center;
+}
+
+.sidebar.collapsed ul li a span {
+    display: none;
+}
+
+.sidebar.collapsed ul li a i {
+    margin-right: 0;
+    font-size: 1.2rem;
 }
 
 .sidebar h3 {
@@ -64,6 +89,12 @@ body {
     text-align: center;
 }
 
+.sidebar ul li a span {
+    display: inline-block;
+    transition: opacity 0.3s ease;
+    white-space: nowrap;
+}
+
 /* Main Content */
 .main-content {
     flex: 1;
@@ -71,6 +102,12 @@ body {
     margin-left: 250px;
     /* Offset for fixed sidebar */
     width: calc(100% - 250px);
+    transition: all 0.3s ease;
+}
+
+.main-content.expanded {
+    margin-left: 0;
+    width: 100%;
 }
 
 .content-card {
@@ -108,6 +145,15 @@ body {
     /* Changed to white for better contrast on gradient */
     text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
     margin: 0;
+    font-size: 1.75rem;
+    /* Default size */
+}
+
+@media (max-width: 768px) {
+    .header h2 {
+        font-size: 1.3rem;
+        /* Smaller on mobile */
+    }
 }
 
 .user-info {
@@ -135,12 +181,21 @@ body {
 /* Table Styles */
 .table-responsive {
     border-radius: 10px;
+    border-radius: 10px;
     overflow: hidden;
+    overflow-x: auto;
+    /* Enable horizontal scrolling */
+    -webkit-overflow-scrolling: touch;
+    /* Smooth scrolling on iOS */
     box-shadow: 0 0 20px rgba(0, 0, 0, 0.05);
+    margin-bottom: 1rem;
 }
 
+/* Ensure table doesn't shrink below min-width to force scroll */
 .table {
     margin-bottom: 0;
+    min-width: 600px;
+    /* Force scroll on small screens */
 }
 
 .table thead th {
@@ -240,12 +295,27 @@ body {
     color: white;
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
     transition: all 0.3s ease;
+    padding: 0.5rem 1rem;
+    /* Standard padding */
 }
 
 .btn-gradient:hover {
     transform: translateY(-2px);
     box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
     color: white;
+}
+
+/* Button Group Handling on Mobile */
+@media (max-width: 576px) {
+    .d-flex.gap-2 {
+        flex-direction: column;
+        gap: 0.5rem !important;
+    }
+
+    .btn {
+        width: 100%;
+        /* Full width buttons on very small screens */
+    }
 }
 
 /* Form Controls */
@@ -335,4 +405,78 @@ body {
     color: #ccc;
     background: transparent;
     pointer-events: none;
+    pointer-events: none;
+}
+
+/* OVERLAY */
+.overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 999;
+    display: none;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.overlay.active {
+    display: block;
+    opacity: 1;
+}
+
+/* MEDIA QUERIES (Mobile) */
+@media (max-width: 768px) {
+    .sidebar {
+        transform: translateX(-100%);
+        width: 250px;
+    }
+
+    .sidebar.active {
+        transform: translateX(0);
+    }
+
+    .main-content,
+    .main-content.expanded {
+        margin-left: 0;
+        width: 100%;
+        padding: 1rem;
+        /* Reduced padding on mobile */
+    }
+
+    .content-card {
+        padding: 1.25rem;
+        /* Reduced padding inside cards */
+    }
+
+    .header {
+        flex-direction: row;
+        gap: 10px;
+        margin-bottom: 1.5rem;
+        /* reduced margin */
+    }
+
+    .header h2 {
+        font-size: 1.25rem;
+    }
+
+    /* On mobile, collapsed class shouldn't affect width if active is present, 
+       but our logic toggles both. Let's ensure active overrides collapsed styles 
+       if they conflict, or simply: on mobile, 'collapsed' state is irrelevant, 
+       'active' handles visibility. */
+
+    .sidebar.collapsed {
+        width: 250px;
+        /* Reset on mobile */
+    }
+
+    .sidebar.collapsed h3 {
+        display: block;
+    }
+
+    .sidebar.collapsed ul li a span {
+        display: inline;
+    }
 }

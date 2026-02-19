@@ -59,7 +59,12 @@
         <div class="main-content">
             <!-- Header -->
             <div class="header">
-                <h2>{% block header %}Dashboard{% endblock %}</h2>
+                <div class="d-flex align-items-center">
+                    <button id="sidebarToggle" class="btn btn-outline-light me-3">
+                        <i class="fas fa-bars"></i>
+                    </button>
+                    <h2>{% block header %}Dashboard{% endblock %}</h2>
+                </div>
                 <div class="user-info">
                     <img src="{{ url_for('static', filename='profile_user.svg') }}"
                         onerror="this.src='https://via.placeholder.com/40'" alt="User">
@@ -83,6 +88,10 @@
             {% block content %}{% endblock %}
         </div>
     </div>
+    </div>
+
+    <!-- Overlay for mobile sidebar -->
+    <div class="overlay" id="sidebarOverlay"></div>
 
     <!-- Toast Container for Real-Time Notifications -->
     <div class="toast-container position-fixed bottom-0 end-0 p-3" id="toast-container"></div>
@@ -124,6 +133,40 @@
             bsToast.show();
             toastEl.addEventListener('hidden.bs.toast', () => toastEl.remove());
         }
+        // Sidebar Toggle Logic
+        document.addEventListener('DOMContentLoaded', () => {
+            const sidebar = document.querySelector('.sidebar');
+            const mainContent = document.querySelector('.main-content');
+            const sidebarToggle = document.getElementById('sidebarToggle');
+            const sidebarOverlay = document.getElementById('sidebarOverlay');
+
+            // Function to toggle sidebar
+            function toggleSidebar() {
+                if (window.innerWidth <= 768) {
+                    // Mobile: Toggle active class only
+                    sidebar.classList.toggle('active');
+
+                    // Overlay logic
+                    if (sidebar.classList.contains('active')) {
+                        sidebarOverlay.classList.add('active');
+                    } else {
+                        sidebarOverlay.classList.remove('active');
+                    }
+                } else {
+                    // Desktop: Toggle collapsed/expanded classes
+                    sidebar.classList.toggle('collapsed');
+                    mainContent.classList.toggle('expanded');
+                }
+            }
+
+            sidebarToggle.addEventListener('click', toggleSidebar);
+            sidebarOverlay.addEventListener('click', () => {
+                sidebar.classList.remove('active');
+                sidebarOverlay.classList.remove('active');
+            });
+
+            // Close sidebar on route change (mobile) if needed? No, page reload handles it.
+        });
     </script>
     <!-- Pagination Utility -->
     <script src="{{ url_for('static', filename='js/pagination.js') }}"></script>
